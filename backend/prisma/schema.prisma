@@ -48,6 +48,7 @@ model Item {
   location    String
   description String?
   qrValue     String        @unique
+  barcodeValue String       @unique
   lowStockAt  Int           @default(5)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt

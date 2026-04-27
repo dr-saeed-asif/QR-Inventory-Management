@@ -12,6 +12,7 @@ interface ApiInventoryItem {
   location: string
   description?: string | null
   qrValue: string
+  barcodeValue: string
   createdAt: string
   category?: { id: string; name: string }
 }
@@ -27,6 +28,7 @@ const mapItem = (item: ApiInventoryItem): InventoryItem => ({
   location: item.location,
   description: item.description ?? undefined,
   qrValue: item.qrValue,
+  barcodeValue: item.barcodeValue,
   createdAt: item.createdAt,
 })
 
@@ -60,8 +62,8 @@ export const inventoryService = {
     const { data } = await http.post<ApiInventoryItem>('/items', payload)
     return mapItem(data)
   },
-  detailsFromQr: async (qrValue: string) => {
-    const { data } = await http.get<ApiInventoryItem>(`/qr/${encodeURIComponent(qrValue)}`)
+  detailsFromCode: async (value: string) => {
+    const { data } = await http.get<ApiInventoryItem>(`/qr/${encodeURIComponent(value)}`)
     return mapItem(data)
   },
   delete: async (id: string) => {

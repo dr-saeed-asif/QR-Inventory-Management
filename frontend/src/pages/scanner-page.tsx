@@ -13,17 +13,18 @@ export const ScannerPage = () => {
 
   return (
     <Card className="space-y-3">
-      <h2 className="text-lg font-semibold">QR Scanner</h2>
+      <h2 className="text-lg font-semibold">QR / Barcode Scanner</h2>
       <div className="h-[300px] w-[400px] max-w-full overflow-hidden rounded-md border border-slate-200">
         <Scanner
+          formats={['qr_code', 'code_128', 'ean_13', 'ean_8', 'upc_a', 'upc_e']}
           onScan={async (codes: Array<{ rawValue?: string }>) => {
             const value = codes[0]?.rawValue
             if (!value) return
             try {
-              setItem(await inventoryService.detailsFromQr(value))
+              setItem(await inventoryService.detailsFromCode(value))
               setError('')
             } catch {
-              setError('Item not found for this QR code')
+              setError('Item not found for this code')
               setItem(null)
             }
           }}
@@ -38,6 +39,7 @@ export const ScannerPage = () => {
           <p>Category: {item.category}</p>
           <p>Quantity: {item.quantity}</p>
           <p>Location: {item.location}</p>
+          <p>Barcode: {item.barcodeValue}</p>
         </div>
       ) : null}
     </Card>

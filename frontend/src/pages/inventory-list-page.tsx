@@ -1,12 +1,13 @@
 import { Fragment, useEffect, useState } from 'react'
 import QRCode from 'qrcode'
+import { barcodeToDataUrl } from '@/lib/barcode'
 import { inventoryService } from '@/services/inventory.service'
 import type { InventoryItem } from '@/types'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
-import { cn } from '@/lib/utils'
+import { Modal } from '@/components/ui/modal'
 
 export const InventoryListPage = () => {
   const [items, setItems] = useState<InventoryItem[]>([])
@@ -17,9 +18,11 @@ export const InventoryListPage = () => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [qrPreview, setQrPreview] = useState('')
-  const [activeItemId, setActiveItemId] = useState<string | null>(null)
-  const [activeMode, setActiveMode] = useState<'view' | 'edit' | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [modalType, setModalType] = useState<'qr' | 'barcode' | 'view' | 'edit' | 'delete' | null>(null)
+  const [modalItem, setModalItem] = useState<InventoryItem | null>(null)
+  const [modalQrImage, setModalQrImage] = useState<string | null>(null)
+  const [modalBarcodeImage, setModalBarcodeImage] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState<Partial<InventoryItem>>({})
 
   const loadItems = () =>
@@ -32,17 +35,6 @@ export const InventoryListPage = () => {
     void loadItems()
   }, [category, location, page, search, sortBy, sortOrder])
 
-  const onDelete = async (id: string) => {
-    if (!window.confirm('Delete this item?')) return
-    await inventoryService.delete(id)
-    if (activeItemId === id) {
-      setActiveItemId(null)
-      setActiveMode(null)
-    }
-    await loadItems()
-  }
-
-  const showQr = async (value: string) => setQrPreview(await QRCode.toDataURL(value))
   const downloadQr = async (value: string, sku: string) => {
     const dataUrl = await QRCode.toDataURL(value)
     const response = await fetch(dataUrl)
@@ -57,22 +49,59 @@ export const InventoryListPage = () => {
     URL.revokeObjectURL(objectUrl)
   }
 
-  const togglePanel = (item: InventoryItem, mode: 'view' | 'edit') => {
-    if (activeItemId === item.id && activeMode === mode) {
-      setActiveItemId(null)
-      setActiveMode(null)
-      return
-    }
-    setActiveItemId(item.id)
-    setActiveMode(mode)
-    setEditDraft({
-      name: item.name,
-      quantity: item.quantity,
-      location: item.location,
-      supplier: item.supplier,
-      description: item.description,
-    })
+  const downloadBarcode = async (value: string, sku: string) => {
+    const dataUrl = barcodeToDataUrl(value)
+    const response = await fetch(dataUrl)
+    const blob = await response.blob()
+    const objectUrl = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = objectUrl
+    anchor.download = `${sku}-barcode.png`
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    URL.revokeObjectURL(objectUrl)
   }
+
+  const printImage = (imageUrl: string, title: string) => {
+    const printWindow = window.open('', '_blank', 'width=800,height=600')
+    if (!printWindow) return
+
+    printWindow.document.open()
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>${title}</title>
+          <style>
+            body {
+              margin: 0;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              min-height: 100vh;
+              font-family: Arial, sans-serif;
+            }
+            img {
+              max-width: 95vw;
+              max-height: 95vh;
+            }
+          </style>
+        </head>
+        <body>
+          <img src="${imageUrl}" alt="${title}" />
+          <script>
+            window.onload = function () {
+              window.print();
+              window.onafterprint = function () { window.close(); };
+            };
+          </script>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+  }
+
+  
 
   const onSaveEdit = async (id: string) => {
     await inventoryService.update(id, {
@@ -82,8 +111,53 @@ export const InventoryListPage = () => {
       supplier: editDraft.supplier ?? '',
       description: editDraft.description ?? '',
     })
-    setActiveItemId(null)
-    setActiveMode(null)
+    setModalOpen(false)
+    await loadItems()
+  }
+
+  const openQrModal = async (item: InventoryItem) => {
+    setModalItem(item)
+    setModalType('qr')
+    setModalQrImage(await QRCode.toDataURL(item.qrValue))
+    setModalOpen(true)
+  }
+
+  const openBarcodeModal = (item: InventoryItem) => {
+    setModalItem(item)
+    setModalType('barcode')
+    setModalBarcodeImage(barcodeToDataUrl(item.barcodeValue))
+    setModalOpen(true)
+  }
+
+  const openViewModal = (item: InventoryItem) => {
+    setModalItem(item)
+    setModalType('view')
+    setModalOpen(true)
+  }
+
+  const openEditModal = (item: InventoryItem) => {
+    setEditDraft({
+      name: item.name,
+      quantity: item.quantity,
+      location: item.location,
+      supplier: item.supplier,
+      description: item.description,
+    })
+    setModalItem(item)
+    setModalType('edit')
+    setModalOpen(true)
+  }
+
+  const openDeleteModal = (item: InventoryItem) => {
+    setModalItem(item)
+    setModalType('delete')
+    setModalOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!modalItem) return
+    await inventoryService.delete(modalItem.id)
+    setModalOpen(false)
     await loadItems()
   }
 
@@ -111,7 +185,7 @@ export const InventoryListPage = () => {
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b">
-              <th>Name</th><th>SKU</th><th>Category</th><th>Qty</th><th>Location</th><th>QR</th><th>Actions</th>
+              <th>Name</th><th>SKU</th><th>Category</th><th>Qty</th><th>Location</th><th>Codes</th><th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -119,78 +193,19 @@ export const InventoryListPage = () => {
               <Fragment key={item.id}>
                 <tr key={item.id} className="border-b">
                   <td>{item.name}</td><td>{item.sku}</td><td>{item.category}</td><td>{item.quantity}</td><td>{item.location}</td>
-                  <td><Button type="button" variant="outline" onClick={() => showQr(item.qrValue)}>Show QR</Button></td>
                   <td className="space-x-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={cn(activeItemId === item.id && activeMode === 'view' && 'bg-slate-900 text-white hover:bg-slate-800')}
-                      onClick={() => togglePanel(item, 'view')}
-                    >
-                      {activeItemId === item.id && activeMode === 'view' ? 'Close' : 'View'}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={cn(activeItemId === item.id && activeMode === 'edit' && 'bg-slate-900 text-white hover:bg-slate-800')}
-                      onClick={() => togglePanel(item, 'edit')}
-                    >
-                      {activeItemId === item.id && activeMode === 'edit' ? 'Close' : 'Edit'}
-                    </Button>
+                    <Button type="button" variant="outline" onClick={() => openQrModal(item)}>Show QR</Button>
+                    <Button type="button" variant="outline" onClick={() => openBarcodeModal(item)}>Show Barcode</Button>
+                  </td>
+                  <td className="space-x-1">
+                    <Button type="button" variant="outline" onClick={() => openViewModal(item)}>View</Button>
+                    <Button type="button" variant="outline" onClick={() => openEditModal(item)}>Edit</Button>
                     <Button type="button" variant="outline" onClick={() => downloadQr(item.qrValue, item.sku)}>Download QR</Button>
-                    <Button type="button" variant="destructive" onClick={() => onDelete(item.id)}>Delete</Button>
+                    <Button type="button" variant="outline" onClick={() => downloadBarcode(item.barcodeValue, item.sku)}>Download Barcode</Button>
+                    <Button type="button" variant="destructive" onClick={() => openDeleteModal(item)}>Delete</Button>
                   </td>
                 </tr>
-                {activeItemId === item.id ? (
-                  <tr className="border-b bg-slate-50">
-                    <td colSpan={7} className="p-3">
-                      {activeMode === 'view' ? (
-                        <div className="grid gap-1 text-sm">
-                          <p><span className="font-semibold">Name:</span> {item.name}</p>
-                          <p><span className="font-semibold">SKU:</span> {item.sku}</p>
-                          <p><span className="font-semibold">Category:</span> {item.category}</p>
-                          <p><span className="font-semibold">Supplier:</span> {item.supplier}</p>
-                          <p><span className="font-semibold">Location:</span> {item.location}</p>
-                          <p><span className="font-semibold">Price:</span> {item.price}</p>
-                          <p><span className="font-semibold">Description:</span> {item.description || '-'}</p>
-                        </div>
-                      ) : (
-                        <div className="grid gap-2 md:grid-cols-2">
-                          <Input
-                            value={editDraft.name ?? ''}
-                            onChange={(e) => setEditDraft((prev) => ({ ...prev, name: e.target.value }))}
-                            placeholder="Item Name"
-                          />
-                          <Input
-                            type="number"
-                            value={String(editDraft.quantity ?? 0)}
-                            onChange={(e) => setEditDraft((prev) => ({ ...prev, quantity: Number(e.target.value) }))}
-                            placeholder="Quantity"
-                          />
-                          <Input
-                            value={editDraft.supplier ?? ''}
-                            onChange={(e) => setEditDraft((prev) => ({ ...prev, supplier: e.target.value }))}
-                            placeholder="Supplier"
-                          />
-                          <Input
-                            value={editDraft.location ?? ''}
-                            onChange={(e) => setEditDraft((prev) => ({ ...prev, location: e.target.value }))}
-                            placeholder="Location"
-                          />
-                          <Input
-                            className="md:col-span-2"
-                            value={editDraft.description ?? ''}
-                            onChange={(e) => setEditDraft((prev) => ({ ...prev, description: e.target.value }))}
-                            placeholder="Description"
-                          />
-                          <div className="md:col-span-2">
-                            <Button type="button" onClick={() => onSaveEdit(item.id)}>Save Changes</Button>
-                          </div>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ) : null}
+                {/* modal used instead of inline panel */}
               </Fragment>
             ))}
           </tbody>
@@ -203,7 +218,137 @@ export const InventoryListPage = () => {
           <Button type="button" variant="outline" onClick={() => setPage((p) => p + 1)}>Next</Button>
         </div>
       </div>
-      {qrPreview ? <img src={qrPreview} alt="QR preview" className="h-44 w-44" /> : null}
+      <Modal
+        open={modalOpen}
+        title={modalType === 'qr' ? 'QR Code' : modalType === 'barcode' ? 'Barcode' : modalType === 'view' ? 'Item Details' : modalType === 'edit' ? 'Edit Item' : modalType === 'delete' ? 'Confirm Delete' : ''}
+        onClose={() => setModalOpen(false)}
+        footer={
+              modalType === 'qr' ? (
+                <div className="flex justify-end gap-2">
+                  {modalQrImage && modalItem ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={() => downloadQr(modalItem.qrValue, modalItem.sku)}
+                      >
+                        Download QR
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => printImage(modalQrImage, `QR-${modalItem.sku}`)}
+                      >
+                        Print QR
+                      </Button>
+                    </>
+                  ) : null}
+                  <Button variant="outline" onClick={() => setModalOpen(false)}>Close</Button>
+                </div>
+              ) : modalType === 'barcode' ? (
+                <div className="flex justify-end gap-2">
+                  {modalBarcodeImage && modalItem ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={() => downloadBarcode(modalItem.barcodeValue, modalItem.sku)}
+                      >
+                        Download Barcode
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => printImage(modalBarcodeImage, `BARCODE-${modalItem.sku}`)}
+                      >
+                        Print Barcode
+                      </Button>
+                    </>
+                  ) : null}
+                  <Button variant="outline" onClick={() => setModalOpen(false)}>Close</Button>
+                </div>
+              ) : modalType === 'view' ? (
+                <div className="flex justify-end gap-2">
+                  {modalItem ? (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        const html = `
+                          <html>
+                            <head>
+                              <title>${modalItem.name}</title>
+                              <style>
+                                body { font-family: Arial, sans-serif; padding: 24px; }
+                                h1 { margin: 0 0 12px; }
+                                p { margin: 6px 0; }
+                              </style>
+                            </head>
+                            <body>
+                              <h1>${modalItem.name}</h1>
+                              <p><strong>SKU:</strong> ${modalItem.sku}</p>
+                              <p><strong>Category:</strong> ${modalItem.category}</p>
+                              <p><strong>Supplier:</strong> ${modalItem.supplier}</p>
+                              <p><strong>Location:</strong> ${modalItem.location}</p>
+                              <p><strong>Price:</strong> ${modalItem.price}</p>
+                              <p><strong>Barcode:</strong> ${modalItem.barcodeValue}</p>
+                              <p><strong>Description:</strong> ${modalItem.description || '-'}</p>
+                            </body>
+                          </html>
+                        `
+                        const printWindow = window.open('', '_blank', 'width=800,height=600')
+                        if (!printWindow) return
+                        printWindow.document.open()
+                        printWindow.document.write(html)
+                        printWindow.document.close()
+                        printWindow.focus()
+                        printWindow.print()
+                      }}
+                    >
+                      Print Details
+                    </Button>
+                  ) : null}
+                  <Button variant="outline" onClick={() => setModalOpen(false)}>Close</Button>
+                </div>
+              ) : modalType === 'edit' ? (
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
+              <Button onClick={() => modalItem && onSaveEdit(modalItem.id)}>Save</Button>
+            </div>
+          ) : modalType === 'delete' ? (
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
+              <Button variant="destructive" onClick={confirmDelete}>Delete</Button>
+            </div>
+          ) : null
+        }
+      >
+        {modalType === 'qr' ? (
+          modalQrImage ? <div className="flex justify-center"><img src={modalQrImage} alt="QR" className="h-56 w-56" /></div> : <p>Generating...</p>
+        ) : modalType === 'barcode' ? (
+          modalBarcodeImage ? <div className="flex justify-center"><img src={modalBarcodeImage} alt="Barcode" className="h-28 w-full max-w-sm object-contain" /></div> : <p>Generating...</p>
+        ) : modalType === 'view' ? (
+          modalItem ? (
+            <div className="grid gap-2 text-sm">
+              <p><strong>Name:</strong> {modalItem.name}</p>
+              <p><strong>SKU:</strong> {modalItem.sku}</p>
+              <p><strong>Category:</strong> {modalItem.category}</p>
+              <p><strong>Supplier:</strong> {modalItem.supplier}</p>
+              <p><strong>Location:</strong> {modalItem.location}</p>
+              <p><strong>Price:</strong> {modalItem.price}</p>
+              <p><strong>Barcode:</strong> {modalItem.barcodeValue}</p>
+              <p><strong>Description:</strong> {modalItem.description || '-'}</p>
+            </div>
+          ) : null
+        ) : modalType === 'edit' ? (
+          <div className="grid gap-2 md:grid-cols-2">
+            <Input value={editDraft.name ?? ''} onChange={(e) => setEditDraft((p) => ({ ...p, name: e.target.value }))} placeholder="Item Name" />
+            <Input type="number" value={String(editDraft.quantity ?? 0)} onChange={(e) => setEditDraft((p) => ({ ...p, quantity: Number(e.target.value) }))} placeholder="Quantity" />
+            <Input value={editDraft.supplier ?? ''} onChange={(e) => setEditDraft((p) => ({ ...p, supplier: e.target.value }))} placeholder="Supplier" />
+            <Input value={editDraft.location ?? ''} onChange={(e) => setEditDraft((p) => ({ ...p, location: e.target.value }))} placeholder="Location" />
+            <Input className="md:col-span-2" value={editDraft.description ?? ''} onChange={(e) => setEditDraft((p) => ({ ...p, description: e.target.value }))} placeholder="Description" />
+          </div>
+        ) : modalType === 'delete' ? (
+          <div>
+            <p>Are you sure you want to delete <strong>{modalItem?.name}</strong> (SKU: {modalItem?.sku})?</p>
+          </div>
+        ) : null}
+      </Modal>
     </Card>
   )
 }

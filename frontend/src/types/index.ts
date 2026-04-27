@@ -21,6 +21,7 @@ export interface InventoryItem {
   location: string
   description?: string
   qrValue: string
+  barcodeValue: string
   createdAt: string
 }
 

@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from '../config/prisma'
 import { ApiError } from '../utils/api-error'
-import { generateQrValue } from '../utils/qr'
+import { generateBarcodeValue, generateQrValue } from '../utils/qr'
 import { activityService } from './activity.service'
 import { auditService } from './audit.service'
 
@@ -27,6 +27,7 @@ export const itemService = {
         ...input,
         price: new Prisma.Decimal(input.price),
         qrValue: generateQrValue(),
+        barcodeValue: generateBarcodeValue(input.sku),
       },
       include: { category: true },
     })
@@ -73,9 +74,14 @@ export const itemService = {
     return item
   },
 
-  getByQrCode: async (code: string) => {
-    const item = await prisma.item.findUnique({ where: { qrValue: code }, include: { category: true } })
-    if (!item) throw new ApiError(404, 'Item not found for QR code')
+  getByCode: async (code: string) => {
+    const item = await prisma.item.findFirst({
+      where: {
+        OR: [{ qrValue: code }, { barcodeValue: code }],
+      },
+      include: { category: true },
+    })
+    if (!item) throw new ApiError(404, 'Item not found for provided code')
     return item
   },
 

@@ -6,9 +6,13 @@ const api_error_1 = require("../utils/api-error");
 const activity_service_1 = require("./activity.service");
 exports.scanService = {
     create: async (qrCode, note, userId) => {
-        const item = await prisma_1.prisma.item.findUnique({ where: { qrValue: qrCode } });
+        const item = await prisma_1.prisma.item.findFirst({
+            where: {
+                OR: [{ qrValue: qrCode }, { barcodeValue: qrCode }],
+            },
+        });
         if (!item)
-            throw new api_error_1.ApiError(404, 'Item not found for provided QR code');
+            throw new api_error_1.ApiError(404, 'Item not found for provided code');
         const scan = await prisma_1.prisma.scanHistory.create({
             data: {
                 qrCode,
@@ -21,7 +25,7 @@ exports.scanService = {
             action: 'SCAN',
             entityType: 'ITEM',
             entityId: item.id,
-            description: 'QR scan logged',
+            description: 'Code scan logged',
             userId,
             itemId: item.id,
         });

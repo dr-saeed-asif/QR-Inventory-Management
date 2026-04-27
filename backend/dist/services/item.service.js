@@ -17,6 +17,7 @@ exports.itemService = {
                 ...input,
                 price: new client_1.Prisma.Decimal(input.price),
                 qrValue: (0, qr_1.generateQrValue)(),
+                barcodeValue: (0, qr_1.generateBarcodeValue)(input.sku),
             },
             include: { category: true },
         });
@@ -57,10 +58,15 @@ exports.itemService = {
             throw new api_error_1.ApiError(404, 'Item not found');
         return item;
     },
-    getByQrCode: async (code) => {
-        const item = await prisma_1.prisma.item.findUnique({ where: { qrValue: code }, include: { category: true } });
+    getByCode: async (code) => {
+        const item = await prisma_1.prisma.item.findFirst({
+            where: {
+                OR: [{ qrValue: code }, { barcodeValue: code }],
+            },
+            include: { category: true },
+        });
         if (!item)
-            throw new api_error_1.ApiError(404, 'Item not found for QR code');
+            throw new api_error_1.ApiError(404, 'Item not found for provided code');
         return item;
     },
     update: async (id, input, userId) => {

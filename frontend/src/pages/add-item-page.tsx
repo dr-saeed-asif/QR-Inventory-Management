@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
 import { itemSchema, type ItemInput } from '@/lib/validators'
+import { barcodeToDataUrl } from '@/lib/barcode'
 import { inventoryService } from '@/services/inventory.service'
 import { categoryService } from '@/services/category.service'
 import { useToast } from '@/hooks/use-toast'
@@ -12,6 +13,7 @@ import type { Category } from '@/types'
 export const AddItemPage = () => {
   const { toast } = useToast()
   const [qrImage, setQrImage] = useState<string>('')
+  const [barcodeImage, setBarcodeImage] = useState<string>('')
   const [categories, setCategories] = useState<Category[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errors, setErrors] = useState<Partial<Record<keyof ItemInput, string>>>({})
@@ -47,20 +49,21 @@ export const AddItemPage = () => {
     try {
       const item = await inventoryService.create(parsed.data)
       setQrImage(await QRCode.toDataURL(item.qrValue))
+      setBarcodeImage(barcodeToDataUrl(item.barcodeValue))
       toast({ title: 'Item created successfully' })
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const downloadGeneratedQr = async () => {
-    if (!qrImage) return
-    const response = await fetch(qrImage)
+  const downloadGeneratedCode = async (imageUrl: string, filename: string) => {
+    if (!imageUrl) return
+    const response = await fetch(imageUrl)
     const blob = await response.blob()
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
     anchor.href = url
-    anchor.download = `qr-code-${Date.now()}.png`
+    anchor.download = filename
     document.body.appendChild(anchor)
     anchor.click()
     anchor.remove()
@@ -141,13 +144,39 @@ export const AddItemPage = () => {
         />
         <Button disabled={isSubmitting} className="md:col-span-2">{isSubmitting ? 'Saving...' : 'Create Item'}</Button>
       </form>
-      {qrImage ? (
+      {qrImage || barcodeImage ? (
         <Card className="space-y-2">
-          <p className="font-medium">Generated QR</p>
-          <img src={qrImage} alt="Generated QR code" className="h-40 w-40" />
+          <p className="font-medium">Generated Codes</p>
+          <div className="grid gap-4 md:grid-cols-2">
+            {qrImage ? (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">QR Code</p>
+                <img src={qrImage} alt="Generated QR code" className="h-40 w-40" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => downloadGeneratedCode(qrImage, `qr-code-${Date.now()}.png`)}
+                >
+                  Download QR
+                </Button>
+              </div>
+            ) : null}
+            {barcodeImage ? (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Barcode (CODE128)</p>
+                <img src={barcodeImage} alt="Generated barcode" className="h-28 w-full max-w-xs object-contain" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => downloadGeneratedCode(barcodeImage, `barcode-${Date.now()}.png`)}
+                >
+                  Download Barcode
+                </Button>
+              </div>
+            ) : null}
+          </div>
           <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={downloadGeneratedQr}>Download QR</Button>
-            <Button type="button" variant="outline" onClick={() => window.print()}>Print QR</Button>
+            <Button type="button" variant="outline" onClick={() => window.print()}>Print Codes</Button>
           </div>
         </Card>
       ) : null}

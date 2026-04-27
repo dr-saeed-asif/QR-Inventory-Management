@@ -4,8 +4,12 @@ import { activityService } from './activity.service'
 
 export const scanService = {
   create: async (qrCode: string, note?: string, userId?: string) => {
-    const item = await prisma.item.findUnique({ where: { qrValue: qrCode } })
-    if (!item) throw new ApiError(404, 'Item not found for provided QR code')
+    const item = await prisma.item.findFirst({
+      where: {
+        OR: [{ qrValue: qrCode }, { barcodeValue: qrCode }],
+      },
+    })
+    if (!item) throw new ApiError(404, 'Item not found for provided code')
 
     const scan = await prisma.scanHistory.create({
       data: {
@@ -20,7 +24,7 @@ export const scanService = {
       action: 'SCAN',
       entityType: 'ITEM',
       entityId: item.id,
-      description: 'QR scan logged',
+      description: 'Code scan logged',
       userId,
       itemId: item.id,
     })
