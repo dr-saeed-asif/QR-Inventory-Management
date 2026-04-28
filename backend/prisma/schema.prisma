@@ -17,6 +17,20 @@ enum UserRole {
   USER
 }
 
+enum StockMovementType {
+  IN
+  OUT
+  TRANSFER
+  ADJUSTMENT
+}
+
+enum StockAdjustmentReason {
+  DAMAGE
+  LOSS
+  RECOUNT
+  MANUAL
+}
+
 model User {
   id           String        @id @default(uuid())
   name         String
@@ -28,6 +42,7 @@ model User {
   scans        ScanHistory[]
   activities   ActivityLog[]
   audits       AuditTrail[]
+  stockMovements StockMovement[]
 }
 
 model Category {
@@ -36,6 +51,7 @@ model Category {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   items     Item[]
+  itemLinks ItemCategory[]
 }
 
 model Item {
@@ -43,6 +59,7 @@ model Item {
   name        String
   sku         String        @unique
   quantity    Int
+  reservedQty Int           @default(0)
   price       Decimal       @db.Decimal(10, 2)
   supplier    String
   location    String
@@ -57,6 +74,72 @@ model Item {
   scans       ScanHistory[]
   activities  ActivityLog[]
   audits      AuditTrail[]
+  categories  ItemCategory[]
+  tags        ItemTag[]
+  variants    ItemVariant[]
+  stockMovements StockMovement[]
+}
+
+model StockMovement {
+  id               String               @id @default(uuid())
+  itemId           String
+  type             StockMovementType
+  quantity         Int
+  beforeQty        Int
+  afterQty         Int
+  note             String?
+  reference        String?
+  sourceWarehouse  String?
+  destinationWarehouse String?
+  adjustmentReason StockAdjustmentReason?
+  createdAt        DateTime             @default(now())
+  userId           String?
+  item             Item                 @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user             User?                @relation(fields: [userId], references: [id])
+}
+
+model ItemCategory {
+  itemId     String
+  categoryId String
+  createdAt  DateTime @default(now())
+  item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([itemId, categoryId])
+}
+
+model Tag {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  items     ItemTag[]
+}
+
+model ItemTag {
+  itemId     String
+  tagId      String
+  createdAt  DateTime @default(now())
+  item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([itemId, tagId])
+}
+
+model ItemVariant {
+  id          String   @id @default(uuid())
+  itemId      String
+  name        String?
+  sku         String   @unique
+  size        String?
+  color       String?
+  model       String?
+  quantity    Int      @default(0)
+  reservedQty Int      @default(0)
+  price       Decimal? @db.Decimal(10, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  item        Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
 }
 
 model ScanHistory {

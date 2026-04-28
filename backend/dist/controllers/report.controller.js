@@ -14,6 +14,17 @@ exports.reportController = {
             next(error);
         }
     },
+    exportExcel: async (_req, res, next) => {
+        try {
+            const workbook = await report_service_1.reportService.exportExcel();
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.setHeader('Content-Disposition', 'attachment; filename="inventory-report.xlsx"');
+            res.send(workbook);
+        }
+        catch (error) {
+            next(error);
+        }
+    },
     lowStock: async (_req, res, next) => {
         try {
             res.json(await report_service_1.reportService.lowStock());

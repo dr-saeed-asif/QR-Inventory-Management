@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.scanSchema = exports.itemSchema = exports.categorySchema = exports.loginSchema = exports.registerSchema = void 0;
+exports.stockAdjustmentSchema = exports.stockTransferSchema = exports.stockOutSchema = exports.stockInSchema = exports.scanSchema = exports.itemUpdateSchema = exports.itemSchema = exports.categorySchema = exports.loginSchema = exports.registerSchema = void 0;
 const zod_1 = require("zod");
 exports.registerSchema = zod_1.z.object({
     name: zod_1.z.string().min(2),
@@ -19,14 +19,59 @@ exports.itemSchema = zod_1.z.object({
     name: zod_1.z.string().min(2),
     sku: zod_1.z.string().min(2),
     categoryId: zod_1.z.uuid(),
+    categoryIds: zod_1.z.array(zod_1.z.uuid()).optional(),
+    tags: zod_1.z.array(zod_1.z.string().min(1)).optional(),
     quantity: zod_1.z.number().int().min(0),
+    reservedQty: zod_1.z.number().int().min(0).optional(),
     price: zod_1.z.number().min(0),
     supplier: zod_1.z.string().min(2),
     location: zod_1.z.string().min(2),
     description: zod_1.z.string().optional(),
     lowStockAt: zod_1.z.number().int().min(0).optional(),
+    variants: zod_1.z
+        .array(zod_1.z.object({
+        name: zod_1.z.string().optional(),
+        sku: zod_1.z.string().min(2),
+        size: zod_1.z.string().optional(),
+        color: zod_1.z.string().optional(),
+        model: zod_1.z.string().optional(),
+        quantity: zod_1.z.number().int().min(0).default(0),
+        reservedQty: zod_1.z.number().int().min(0).optional(),
+        price: zod_1.z.number().min(0).optional(),
+    }))
+        .optional(),
 });
+exports.itemUpdateSchema = exports.itemSchema.partial();
 exports.scanSchema = zod_1.z.object({
     qrCode: zod_1.z.string().min(8),
     note: zod_1.z.string().optional(),
+});
+exports.stockInSchema = zod_1.z.object({
+    itemId: zod_1.z.uuid(),
+    quantity: zod_1.z.number().int().positive(),
+    note: zod_1.z.string().optional(),
+    reference: zod_1.z.string().optional(),
+    destinationWarehouse: zod_1.z.string().min(1).optional(),
+});
+exports.stockOutSchema = zod_1.z.object({
+    itemId: zod_1.z.uuid(),
+    quantity: zod_1.z.number().int().positive(),
+    note: zod_1.z.string().optional(),
+    reference: zod_1.z.string().optional(),
+    sourceWarehouse: zod_1.z.string().min(1).optional(),
+});
+exports.stockTransferSchema = zod_1.z.object({
+    itemId: zod_1.z.uuid(),
+    quantity: zod_1.z.number().int().positive(),
+    sourceWarehouse: zod_1.z.string().min(1),
+    destinationWarehouse: zod_1.z.string().min(1),
+    note: zod_1.z.string().optional(),
+    reference: zod_1.z.string().optional(),
+});
+exports.stockAdjustmentSchema = zod_1.z.object({
+    itemId: zod_1.z.uuid(),
+    quantity: zod_1.z.number().int().nonnegative(),
+    reason: zod_1.z.enum(['DAMAGE', 'LOSS', 'RECOUNT', 'MANUAL']),
+    note: zod_1.z.string().optional(),
+    reference: zod_1.z.string().optional(),
 });

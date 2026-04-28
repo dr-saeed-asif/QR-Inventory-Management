@@ -85,6 +85,15 @@ export const AddItemModal = ({
         <div>
           <Input
             type="number"
+            placeholder="Reserved Qty"
+            value={form.reservedQty ? String(form.reservedQty) : ''}
+            onChange={(e) => onFormChange('reservedQty', Number(e.target.value || 0))}
+          />
+          {errors.reservedQty && <p className="text-xs text-red-600 mt-1">{errors.reservedQty}</p>}
+        </div>
+        <div>
+          <Input
+            type="number"
             step="0.01"
             placeholder="Price"
             value={form.price === 0 ? '' : String(form.price)}
@@ -107,6 +116,130 @@ export const AddItemModal = ({
             onChange={(e) => onFormChange('location', e.target.value)}
           />
           {errors.location && <p className="text-xs text-red-600 mt-1">{errors.location}</p>}
+        </div>
+        <div className="md:col-span-2">
+          <label className="mb-1 block text-xs text-slate-600">Additional categories (multi-select)</label>
+          <select
+            multiple
+            className="min-h-24 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            value={form.categoryIds ?? []}
+            onChange={(e) =>
+              onFormChange(
+                'categoryIds',
+                Array.from(e.currentTarget.selectedOptions).map((option) => option.value),
+              )
+            }
+          >
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="md:col-span-2">
+          <Input
+            placeholder="Tags (comma separated)"
+            value={(form.tags ?? []).join(', ')}
+            onChange={(e) =>
+              onFormChange(
+                'tags',
+                e.target.value
+                  .split(',')
+                  .map((tag) => tag.trim())
+                  .filter(Boolean),
+              )
+            }
+          />
+        </div>
+        <div className="md:col-span-2 rounded-md border border-slate-200 p-3">
+          <p className="mb-2 text-sm font-semibold">Primary Variant (optional)</p>
+          <div className="grid gap-2 md:grid-cols-3">
+            <Input
+              placeholder="Variant SKU"
+              value={form.variants?.[0]?.sku ?? ''}
+              onChange={(e) =>
+                onFormChange('variants', [
+                  {
+                    ...form.variants?.[0],
+                    sku: e.target.value,
+                    quantity: form.variants?.[0]?.quantity ?? 0,
+                  },
+                ])
+              }
+            />
+            <Input
+              placeholder="Size"
+              value={form.variants?.[0]?.size ?? ''}
+              onChange={(e) =>
+                onFormChange('variants', [
+                  {
+                    ...form.variants?.[0],
+                    sku: form.variants?.[0]?.sku ?? '',
+                    quantity: form.variants?.[0]?.quantity ?? 0,
+                    size: e.target.value,
+                  },
+                ])
+              }
+            />
+            <Input
+              placeholder="Color"
+              value={form.variants?.[0]?.color ?? ''}
+              onChange={(e) =>
+                onFormChange('variants', [
+                  {
+                    ...form.variants?.[0],
+                    sku: form.variants?.[0]?.sku ?? '',
+                    quantity: form.variants?.[0]?.quantity ?? 0,
+                    color: e.target.value,
+                  },
+                ])
+              }
+            />
+            <Input
+              placeholder="Model"
+              value={form.variants?.[0]?.model ?? ''}
+              onChange={(e) =>
+                onFormChange('variants', [
+                  {
+                    ...form.variants?.[0],
+                    sku: form.variants?.[0]?.sku ?? '',
+                    quantity: form.variants?.[0]?.quantity ?? 0,
+                    model: e.target.value,
+                  },
+                ])
+              }
+            />
+            <Input
+              type="number"
+              placeholder="Variant Qty"
+              value={String(form.variants?.[0]?.quantity ?? 0)}
+              onChange={(e) =>
+                onFormChange('variants', [
+                  {
+                    ...form.variants?.[0],
+                    sku: form.variants?.[0]?.sku ?? '',
+                    quantity: Number(e.target.value || 0),
+                  },
+                ])
+              }
+            />
+            <Input
+              type="number"
+              placeholder="Variant Reserved Qty"
+              value={String(form.variants?.[0]?.reservedQty ?? 0)}
+              onChange={(e) =>
+                onFormChange('variants', [
+                  {
+                    ...form.variants?.[0],
+                    sku: form.variants?.[0]?.sku ?? '',
+                    quantity: form.variants?.[0]?.quantity ?? 0,
+                    reservedQty: Number(e.target.value || 0),
+                  },
+                ])
+              }
+            />
+          </div>
         </div>
         <div className="md:col-span-2">
           <textarea

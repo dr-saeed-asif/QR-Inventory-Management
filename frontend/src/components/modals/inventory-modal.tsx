@@ -112,6 +112,11 @@ export const InventoryModal = ({
                       <h1>${modalItem.name}</h1>
                       <p><strong>SKU:</strong> ${modalItem.sku}</p>
                       <p><strong>Category:</strong> ${modalItem.category}</p>
+                      <p><strong>Additional Categories:</strong> ${modalItem.categories?.map((c) => c.name).join(', ') || '-'}</p>
+                      <p><strong>Tags:</strong> ${modalItem.tags?.join(', ') || '-'}</p>
+                      <p><strong>On Hand:</strong> ${modalItem.quantity}</p>
+                      <p><strong>Reserved:</strong> ${modalItem.reservedQty}</p>
+                      <p><strong>Available:</strong> ${modalItem.availableQty}</p>
                       <p><strong>Supplier:</strong> ${modalItem.supplier}</p>
                       <p><strong>Location:</strong> ${modalItem.location}</p>
                       <p><strong>Price:</strong> ${modalItem.price}</p>
@@ -200,6 +205,21 @@ export const InventoryModal = ({
             <strong>Category:</strong> {modalItem.category}
           </p>
           <p>
+            <strong>Additional Categories:</strong> {modalItem.categories?.map((category) => category.name).join(', ') || '-'}
+          </p>
+          <p>
+            <strong>Tags:</strong> {modalItem.tags?.join(', ') || '-'}
+          </p>
+          <p>
+            <strong>On Hand:</strong> {modalItem.quantity}
+          </p>
+          <p>
+            <strong>Reserved:</strong> {modalItem.reservedQty}
+          </p>
+          <p>
+            <strong>Available:</strong> {modalItem.availableQty}
+          </p>
+          <p>
             <strong>Supplier:</strong> {modalItem.supplier}
           </p>
           <p>
@@ -213,6 +233,14 @@ export const InventoryModal = ({
           </p>
           <p>
             <strong>Description:</strong> {modalItem.description || '-'}
+          </p>
+          <p>
+            <strong>Variants:</strong>{' '}
+            {modalItem.variants?.length
+              ? modalItem.variants
+                  .map((variant) => `${variant.sku}${variant.size ? ` (${variant.size})` : ''}${variant.color ? ` ${variant.color}` : ''}`)
+                  .join(', ')
+              : '-'}
           </p>
         </div>
       ) : null

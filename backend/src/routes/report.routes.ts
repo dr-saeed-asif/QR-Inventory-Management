@@ -6,6 +6,7 @@ const router = Router()
 
 router.use(authenticate)
 router.get('/export-csv', authorize(['ADMIN']), reportController.exportCsv)
+router.get('/export-excel', authorize(['ADMIN']), reportController.exportExcel)
 router.get('/low-stock', reportController.lowStock)
 router.get('/recent', reportController.recent)
 

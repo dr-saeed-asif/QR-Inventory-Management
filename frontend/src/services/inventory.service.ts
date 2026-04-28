@@ -1,5 +1,5 @@
 import { http } from '@/services/http'
-import type { InventoryFilters, InventoryItem, PaginatedResponse } from '@/types'
+import type { Category, InventoryFilters, InventoryItem, ItemVariant, PaginatedResponse } from '@/types'
 import type { ItemInput } from '@/lib/validators'
 
 interface ApiInventoryItem {
@@ -7,6 +7,8 @@ interface ApiInventoryItem {
   name: string
   sku: string
   quantity: number
+  reservedQty?: number
+  availableQty?: number
   price: number | string
   supplier: string
   location: string
@@ -15,6 +17,9 @@ interface ApiInventoryItem {
   barcodeValue: string
   createdAt: string
   category?: { id: string; name: string }
+  categories?: Category[]
+  tags?: Array<{ id: string; name: string } | string>
+  variants?: Array<ItemVariant & { price?: number | string }>
 }
 
 const mapItem = (item: ApiInventoryItem): InventoryItem => ({
@@ -22,13 +27,22 @@ const mapItem = (item: ApiInventoryItem): InventoryItem => ({
   name: item.name,
   sku: item.sku,
   category: item.category?.name ?? 'Unknown',
+  categories: item.categories,
+  tags: item.tags?.map((tag) => (typeof tag === 'string' ? tag : tag.name)),
   quantity: item.quantity,
+  reservedQty: item.reservedQty ?? 0,
+  availableQty: item.availableQty ?? Math.max(0, item.quantity - (item.reservedQty ?? 0)),
   price: Number(item.price),
   supplier: item.supplier,
   location: item.location,
   description: item.description ?? undefined,
   qrValue: item.qrValue,
   barcodeValue: item.barcodeValue,
+  variants: item.variants?.map((variant) => ({
+    ...variant,
+    price: typeof variant.price === 'number' || typeof variant.price === 'undefined' ? variant.price : Number(variant.price),
+    reservedQty: variant.reservedQty ?? 0,
+  })),
   createdAt: item.createdAt,
 })
 
@@ -71,15 +85,29 @@ export const inventoryService = {
   },
   update: async (
     id: string,
-    payload: Partial<{
-      name: string
-      quantity: number
-      location: string
-      supplier: string
-      description: string
-    }>,
+    payload: Partial<ItemInput>,
   ) => {
     const { data } = await http.put<ApiInventoryItem>(`/items/${id}`, payload)
     return mapItem(data)
+  },
+  importFile: async (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const { data } = await http.post('/items/import', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return data as { created: number; updated: number; total: number }
+  },
+  exportCsvFromApi: async () => {
+    const response = await http.get('/reports/export-csv', {
+      responseType: 'blob',
+    })
+    return response.data as Blob
+  },
+  exportExcelFromApi: async () => {
+    const response = await http.get('/reports/export-excel', {
+      responseType: 'blob',
+    })
+    return response.data as Blob
   },
 }

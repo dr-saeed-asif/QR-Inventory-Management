@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast'
 import { AddItemModal } from '@/components/modals/add-item-modal'
 import { InventoryModal } from '@/components/modals/inventory-modal'
 import useDebounce from '@/hooks/use-debounce'
+import axios from 'axios'
 
 export const InventoryListPage = () => {
   const [items, setItems] = useState<InventoryItem[]>([])
@@ -35,15 +36,21 @@ export const InventoryListPage = () => {
     name: '',
     sku: '',
     categoryId: '',
+    categoryIds: [],
+    tags: [],
     quantity: 0,
+    reservedQty: 0,
     price: 0,
     supplier: '',
     location: '',
     description: '',
+    variants: [],
   })
   const [addItemErrors, setAddItemErrors] = useState<Partial<Record<keyof ItemInput, string>>>({})
   const [addItemSubmitting, setAddItemSubmitting] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importing, setImporting] = useState(false)
   const { toast } = useToast()
 
   const loadItems = (overrides?: Partial<{ search: string; category: string; location: string; sortBy: string; sortOrder: 'asc' | 'desc'; page: number }>) => {
@@ -195,13 +202,42 @@ export const InventoryListPage = () => {
 
   const confirmDelete = async () => {
     if (!modalItem) return
-    await inventoryService.delete(modalItem.id)
-    setModalOpen(false)
-    await loadItems()
+    try {
+      await inventoryService.delete(modalItem.id)
+      toast({ title: 'Item deleted successfully' })
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        toast({
+          title: 'Item not found',
+          description: 'This item may already be deleted. List has been refreshed.',
+          variant: 'error',
+        })
+      } else {
+        toast({
+          title: 'Delete failed',
+          description: error instanceof Error ? error.message : 'Please try again.',
+          variant: 'error',
+        })
+      }
+    } finally {
+      setModalOpen(false)
+      await loadItems()
+    }
   }
 
   const handleAddItemSubmit = async () => {
-    const parsed = itemSchema.safeParse(addItemForm)
+    const normalizedForm: ItemInput = {
+      ...addItemForm,
+      categoryIds: addItemForm.categoryIds?.length ? addItemForm.categoryIds : undefined,
+      tags: addItemForm.tags?.length ? addItemForm.tags : undefined,
+      variants:
+        addItemForm.variants?.filter((variant) => variant.sku?.trim()).map((variant) => ({
+          ...variant,
+          sku: variant.sku.trim(),
+          quantity: variant.quantity ?? 0,
+        })) ?? undefined,
+    }
+    const parsed = itemSchema.safeParse(normalizedForm)
     if (!parsed.success) {
       setAddItemErrors(
         parsed.error.issues.reduce<Partial<Record<keyof ItemInput, string>>>((acc, issue) => {
@@ -222,11 +258,15 @@ export const InventoryListPage = () => {
         name: '',
         sku: '',
         categoryId: '',
+        categoryIds: [],
+        tags: [],
         quantity: 0,
+        reservedQty: 0,
         price: 0,
         supplier: '',
         location: '',
         description: '',
+        variants: [],
       })
       await loadItems()
     } finally {
@@ -242,15 +282,80 @@ export const InventoryListPage = () => {
     setEditDraft((prev) => ({ ...prev, [field]: value }))
   }
 
+  const handleImport = async () => {
+    if (!importFile) {
+      toast({ title: 'Please choose a CSV/XLSX file', variant: 'error' })
+      return
+    }
+    setImporting(true)
+    try {
+      const result = await inventoryService.importFile(importFile)
+      toast({
+        title: 'Import completed',
+        description: `Created: ${result.created}, Updated: ${result.updated}`,
+      })
+      setImportFile(null)
+      await loadItems()
+    } catch (error) {
+      toast({
+        title: 'Import failed',
+        description: error instanceof Error ? error.message : 'Please check your file format',
+        variant: 'error',
+      })
+    } finally {
+      setImporting(false)
+    }
+  }
+
   if (items.length === 0) {
-    return <EmptyState title="No inventory found" subtitle="Add your first item to get started." />
+    return (
+      <Card className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Inventoriessss</h2>
+          {/* <div className="flex items-center gap-2">
+            <Input
+              type="file"
+              className="h-10 w-auto"
+              accept=".csv,.xlsx,.xls"
+              onChange={(event) => setImportFile(event.target.files?.[0] ?? null)}
+            />
+            <Button type="button" variant="outline" disabled={importing} onClick={() => void handleImport()}>
+              {importing ? 'Importing...' : 'Import CSV/Excel'}
+            </Button>
+            <Button onClick={() => setAddItemModalOpen(true)}>+ Add Item</Button>
+          </div> */}
+        </div>
+        <EmptyState title="No inventory found" subtitle="Add your first item or import CSV/Excel to get started." />
+        <AddItemModal
+          open={addItemModalOpen}
+          onClose={() => setAddItemModalOpen(false)}
+          onSubmit={handleAddItemSubmit}
+          categories={categories}
+          form={addItemForm}
+          errors={addItemErrors}
+          isSubmitting={addItemSubmitting}
+          onFormChange={handleAddItemFormChange}
+        />
+      </Card>
+    )
   }
 
   return (
     <Card className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Inventories</h2>
-        <Button onClick={() => setAddItemModalOpen(true)}>+ Add Item</Button>
+        <div className="flex items-center gap-2">
+          <Input
+            type="file"
+            className="h-10 w-auto"
+            accept=".csv,.xlsx,.xls"
+            onChange={(event) => setImportFile(event.target.files?.[0] ?? null)}
+          />
+          <Button type="button" variant="outline" disabled={importing} onClick={() => void handleImport()}>
+            {importing ? 'Importing...' : 'Import CSV/Excel'}
+          </Button>
+          <Button onClick={() => setAddItemModalOpen(true)}>+ Add Item</Button>
+        </div>
       </div>
       <div className="grid gap-2 md:grid-cols-5">
         <Input placeholder="Search inventory..." value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -266,23 +371,37 @@ export const InventoryListPage = () => {
           <option value="desc">Descending</option>
         </select> */}
       </div>
-      <div className="overflow-auto">
-        <table className="w-full text-left text-sm">
+      <div className="max-h-[60vh] overflow-x-auto pb-2">
+        <table className="min-w-[1450px] table-fixed text-left text-sm">
           <thead>
             <tr className="border-b">
-              <th>Name</th><th>SKU</th><th>Category</th><th>Qty</th><th>Location</th><th>Codes</th><th>Actions</th>
+              <th className="sticky top-0 z-10 w-[160px] whitespace-nowrap bg-white px-3 py-2">Name</th>
+              <th className="sticky top-0 z-10 w-[150px] whitespace-nowrap bg-white px-3 py-2">SKU</th>
+              <th className="sticky top-0 z-10 w-[140px] whitespace-nowrap bg-white px-3 py-2">Category</th>
+              <th className="sticky top-0 z-10 w-[90px] whitespace-nowrap bg-white px-3 py-2">On Hand</th>
+              <th className="sticky top-0 z-10 w-[90px] whitespace-nowrap bg-white px-3 py-2">Reserved</th>
+              <th className="sticky top-0 z-10 w-[100px] whitespace-nowrap bg-white px-3 py-2">Available</th>
+              <th className="sticky top-0 z-10 w-[160px] whitespace-nowrap bg-white px-3 py-2">Location</th>
+              <th className="sticky top-0 z-10 w-[220px] whitespace-nowrap bg-white px-3 py-2">Codes</th>
+              <th className="sticky top-0 z-10 w-[340px] whitespace-nowrap bg-white px-3 py-2">Actions</th>
             </tr>
           </thead>
           <tbody>
             {items.map((item) => (
               <Fragment key={item.id}>
                 <tr key={item.id} className="border-b">
-                  <td>{item.name}</td><td>{item.sku}</td><td>{item.category}</td><td>{item.quantity}</td><td>{item.location}</td>
-                  <td className="space-x-1">
+                  <td className="px-3 py-3">{item.name}</td>
+                  <td className="px-3 py-3">{item.sku}</td>
+                  <td className="px-3 py-3">{item.category}</td>
+                  <td className="px-3 py-3">{item.quantity}</td>
+                  <td className="px-3 py-3">{item.reservedQty}</td>
+                  <td className="px-3 py-3">{item.availableQty}</td>
+                  <td className="px-3 py-3">{item.location}</td>
+                  <td className="space-x-1 px-3 py-3 whitespace-nowrap">
                     <Button type="button" variant="outline" onClick={() => openQrModal(item)}>Show QR</Button>
                     <Button type="button" variant="outline" onClick={() => openBarcodeModal(item)}>Show Barcode</Button>
                   </td>
-                  <td className="space-x-1">
+                  <td className="space-x-1 px-3 py-3 whitespace-nowrap">
                     <Button type="button" variant="outline" onClick={() => downloadQr(item.qrValue, item.sku)}>Download QR</Button>
                     <Button type="button" variant="outline" onClick={() => downloadBarcode(item.barcodeValue, item.sku)}>Download Barcode</Button>
                     <Button type="button" variant="default" onClick={() => openViewModal(item)}>View</Button>

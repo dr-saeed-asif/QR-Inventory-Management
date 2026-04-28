@@ -5,6 +5,7 @@ import categoryRoutes from './category.routes'
 import qrRoutes from './qr.routes'
 import scanRoutes from './scan.routes'
 import reportRoutes from './report.routes'
+import stockRoutes from './stock.routes'
 
 const router = Router()
 
@@ -14,5 +15,6 @@ router.use('/categories', categoryRoutes)
 router.use('/qr', qrRoutes)
 router.use('/scan', scanRoutes)
 router.use('/reports', reportRoutes)
+router.use('/stock', stockRoutes)
 
 export default router
