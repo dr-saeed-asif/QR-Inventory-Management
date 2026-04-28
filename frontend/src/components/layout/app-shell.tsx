@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 
 const links = [
   { to: '/', label: 'Dashboard' },
-  { to: '/add-item', label: 'Add Item' },
+  // { to: '/add-item', label: 'Add Item' },
   { to: '/inventory', label: 'Inventory Lists' },
   { to: '/scanner', label: 'QR Scanner' },
   { to: '/categories', label: 'Categories' },
@@ -25,7 +25,7 @@ export const AppShell = () => {
     <div className="flex min-h-screen">
       <aside className={cn('border-r bg-white p-3 transition-all', collapsed ? 'w-20' : 'w-64')}>
         <div className="mb-4 flex items-center justify-between">
-          {!collapsed ? <span className="font-bold">QR Inventory</span> : null}
+          {!collapsed ? <span className="font-bold">Inventory Management</span> : null}
           <Button variant="outline" onClick={() => setCollapsed((s) => !s)}>
             {collapsed ? '>' : '<'}
           </Button>
