@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
-import type { InventoryItem } from '@/types'
+import type { InventoryItem, ItemTimelineEvent } from '@/types'
 
 interface InventoryModalProps {
   open: boolean
@@ -17,6 +17,8 @@ interface InventoryModalProps {
   onPrintImage: (imageUrl: string, title: string) => void
   onSaveEdit: () => void
   onConfirmDelete: () => void
+  timelineEvents: ItemTimelineEvent[]
+  loadingTimeline: boolean
 }
 
 export const InventoryModal = ({
@@ -33,6 +35,8 @@ export const InventoryModal = ({
   onPrintImage,
   onSaveEdit,
   onConfirmDelete,
+  timelineEvents,
+  loadingTimeline,
 }: InventoryModalProps) => {
   const getTitle = () => {
     if (!modalType) return ''
@@ -194,7 +198,8 @@ export const InventoryModal = ({
 
     if (modalType === 'view') {
       return modalItem ? (
-        <div className="grid gap-2 text-sm">
+        <div className="grid gap-4 text-sm">
+          <div className="grid gap-2">
           <p>
             <strong>Name:</strong> {modalItem.name}
           </p>
@@ -242,6 +247,30 @@ export const InventoryModal = ({
                   .join(', ')
               : '-'}
           </p>
+          </div>
+          <div className="rounded-md border border-slate-200 p-3">
+            <p className="mb-2 text-sm font-semibold">Lifecycle Timeline</p>
+            {loadingTimeline ? (
+              <p className="text-xs text-slate-500">Loading timeline...</p>
+            ) : timelineEvents.length === 0 ? (
+              <p className="text-xs text-slate-500">No timeline events found.</p>
+            ) : (
+              <div className="max-h-56 space-y-2 overflow-auto pr-1">
+                {timelineEvents.map((event) => (
+                  <div key={event.id} className="rounded-md border border-slate-100 bg-slate-50 p-2">
+                    <p className="text-xs font-semibold text-slate-800">
+                      {event.title} <span className="font-normal text-slate-500">({event.type})</span>
+                    </p>
+                    <p className="text-xs text-slate-600">{new Date(event.at).toLocaleString()}</p>
+                    {event.actor?.name ? (
+                      <p className="text-xs text-slate-600">By: {event.actor.name}</p>
+                    ) : null}
+                    {event.description ? <p className="mt-1 text-xs text-slate-700">{event.description}</p> : null}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       ) : null
     }

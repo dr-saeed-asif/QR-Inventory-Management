@@ -93,6 +93,15 @@ export const AddItemModal = ({
         </div>
         <div>
           <Input
+            type="date"
+            placeholder="Expiry Date"
+            value={form.expiryDate ?? ''}
+            onChange={(e) => onFormChange('expiryDate', e.target.value)}
+          />
+          {errors.expiryDate && <p className="text-xs text-red-600 mt-1">{errors.expiryDate}</p>}
+        </div>
+        <div>
+          <Input
             type="number"
             step="0.01"
             placeholder="Price"
@@ -151,6 +160,64 @@ export const AddItemModal = ({
               )
             }
           />
+        </div>
+        <div className="md:col-span-2 rounded-md border border-slate-200 p-3">
+          <p className="mb-2 text-sm font-semibold">Batch / Lot (optional)</p>
+          <div className="grid gap-2 md:grid-cols-4">
+            <Input
+              placeholder="Batch Number"
+              value={form.batches?.[0]?.batchNumber ?? ''}
+              onChange={(e) =>
+                onFormChange('batches', [
+                  {
+                    ...(form.batches?.[0] ?? { quantity: form.quantity }),
+                    batchNumber: e.target.value,
+                  },
+                ])
+              }
+            />
+            <Input
+              placeholder="Lot Number"
+              value={form.batches?.[0]?.lotNumber ?? ''}
+              onChange={(e) =>
+                onFormChange('batches', [
+                  {
+                    ...(form.batches?.[0] ?? { quantity: form.quantity }),
+                    lotNumber: e.target.value,
+                    batchNumber: form.batches?.[0]?.batchNumber ?? '',
+                  },
+                ])
+              }
+            />
+            <Input
+              type="date"
+              placeholder="Batch Expiry"
+              value={form.batches?.[0]?.expiryDate ?? ''}
+              onChange={(e) =>
+                onFormChange('batches', [
+                  {
+                    ...(form.batches?.[0] ?? { quantity: form.quantity }),
+                    expiryDate: e.target.value,
+                    batchNumber: form.batches?.[0]?.batchNumber ?? '',
+                  },
+                ])
+              }
+            />
+            <Input
+              type="number"
+              placeholder="Batch Qty"
+              value={String(form.batches?.[0]?.quantity ?? form.quantity)}
+              onChange={(e) =>
+                onFormChange('batches', [
+                  {
+                    ...(form.batches?.[0] ?? {}),
+                    quantity: Number(e.target.value || 0),
+                    batchNumber: form.batches?.[0]?.batchNumber ?? '',
+                  },
+                ])
+              }
+            />
+          </div>
         </div>
         <div className="md:col-span-2 rounded-md border border-slate-200 p-3">
           <p className="mb-2 text-sm font-semibold">Primary Variant (optional)</p>

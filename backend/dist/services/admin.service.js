@@ -1,0 +1,400 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.adminService = void 0;
+const bcrypt_1 = __importDefault(require("bcrypt"));
+const node_crypto_1 = require("node:crypto");
+const prisma_1 = require("../config/prisma");
+const api_error_1 = require("../utils/api-error");
+const permissions_1 = require("../config/permissions");
+const activity_service_1 = require("./activity.service");
+const roleLabels = {
+    ADMIN: 'Administrator',
+    MANAGER: 'Operations Manager',
+    USER: 'Standard User',
+};
+const formatDate = (value) => value?.toISOString() ?? new Date().toISOString();
+const coreRoles = ['ADMIN', 'MANAGER', 'USER'];
+const parsePermissions = (value) => {
+    if (Array.isArray(value))
+        return value.map((item) => String(item));
+    if (typeof value === 'string') {
+        try {
+            const parsed = JSON.parse(value);
+            if (Array.isArray(parsed))
+                return parsed.map((item) => String(item));
+        }
+        catch {
+            return [];
+        }
+    }
+    return [];
+};
+const moduleLabelMap = {
+    items: 'Inventory',
+    categories: 'Category',
+    qr: 'QR Code',
+    reports: 'Report',
+    scan: 'Scan',
+    stock: 'Stock',
+};
+const toPermissionAction = (permission) => {
+    const action = permission.split('.')[1] ?? permission;
+    const normalized = action.toLowerCase();
+    if (normalized === 'read')
+        return 'View';
+    if (normalized === 'create')
+        return 'Create';
+    if (normalized === 'update' || normalized === 'write')
+        return 'Edit';
+    if (normalized === 'delete')
+        return 'Delete';
+    if (normalized === 'manage')
+        return 'Manage';
+    if (normalized === 'import')
+        return 'Import';
+    if (normalized === 'export')
+        return 'Export';
+    return null;
+};
+const toPermissionModule = (permission) => {
+    const moduleKey = permission.split('.')[0] ?? permission;
+    return (moduleLabelMap[moduleKey] ??
+        moduleKey
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (char) => char.toUpperCase()));
+};
+const summarizePermissionDisplay = (permissions) => ({
+    actions: Array.from(new Set(permissions
+        .map((permission) => toPermissionAction(permission))
+        .filter(Boolean))),
+    modules: Array.from(new Set(permissions.map((permission) => toPermissionModule(permission)))),
+});
+const toRoleKey = (name) => name
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+const ensureRoleTable = async () => {
+    await prisma_1.prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS admin_roles (
+      id VARCHAR(191) NOT NULL PRIMARY KEY,
+      roleKey VARCHAR(191) NOT NULL UNIQUE,
+      name VARCHAR(191) NOT NULL,
+      permissions JSON NOT NULL,
+      isSystem TINYINT(1) NOT NULL DEFAULT 0,
+      createdAt DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+      updatedAt DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+};
+const ensureUserRoleTable = async () => {
+    await prisma_1.prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS admin_user_roles (
+      userId VARCHAR(191) NOT NULL PRIMARY KEY,
+      roleKey VARCHAR(191) NOT NULL,
+      createdAt DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+      updatedAt DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+};
+const ensureSystemRoles = async () => {
+    await ensureRoleTable();
+    await ensureUserRoleTable();
+    const existing = await prisma_1.prisma.$queryRaw `
+    SELECT roleKey FROM admin_roles WHERE roleKey IN ('ADMIN', 'MANAGER', 'USER')
+  `;
+    const existingKeys = new Set(existing.map((row) => row.roleKey));
+    const defaults = ['ADMIN', 'MANAGER', 'USER'];
+    for (const role of defaults) {
+        if (existingKeys.has(role))
+            continue;
+        await prisma_1.prisma.$executeRaw `
+      INSERT INTO admin_roles (id, roleKey, name, permissions, isSystem)
+      VALUES (${(0, node_crypto_1.randomUUID)()}, ${role}, ${roleLabels[role]}, ${JSON.stringify(Array.from(permissions_1.rolePermissions[role]))}, 1)
+    `;
+    }
+};
+exports.adminService = {
+    listUsers: async () => {
+        await ensureSystemRoles();
+        const users = await prisma_1.prisma.user.findMany({
+            orderBy: { createdAt: 'desc' },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+                createdAt: true,
+                updatedAt: true,
+            },
+        });
+        const overrides = await prisma_1.prisma.$queryRaw `
+      SELECT userId, roleKey FROM admin_user_roles
+    `;
+        const overrideMap = new Map(overrides.map((row) => [row.userId, row.roleKey]));
+        return users.map((user) => ({
+            ...user,
+            role: overrideMap.get(user.id) ?? user.role,
+        }));
+    },
+    createUser: async (input, actorId) => {
+        await ensureSystemRoles();
+        const existing = await prisma_1.prisma.user.findUnique({ where: { email: input.email } });
+        if (existing)
+            throw new api_error_1.ApiError(409, 'Email already in use');
+        const passwordHash = await bcrypt_1.default.hash(input.password, 10);
+        const selectedRole = input.role.trim().toUpperCase();
+        const isCoreRole = coreRoles.includes(selectedRole);
+        const savedRole = isCoreRole ? selectedRole : 'USER';
+        const user = await prisma_1.prisma.user.create({
+            data: {
+                name: input.name,
+                email: input.email,
+                passwordHash,
+                role: savedRole,
+            },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+                createdAt: true,
+                updatedAt: true,
+            },
+        });
+        if (!isCoreRole) {
+            await prisma_1.prisma.$executeRaw `
+        INSERT INTO admin_user_roles (userId, roleKey)
+        VALUES (${user.id}, ${selectedRole})
+        ON DUPLICATE KEY UPDATE roleKey = VALUES(roleKey)
+      `;
+        }
+        await activity_service_1.activityService.create({
+            action: 'CREATE',
+            entityType: 'ADMIN_USER',
+            entityId: user.id,
+            description: `Admin created user ${user.email}`,
+            userId: actorId,
+        });
+        return {
+            ...user,
+            role: selectedRole,
+        };
+    },
+    updateUser: async (userId, input, actorId) => {
+        await ensureSystemRoles();
+        const existing = await prisma_1.prisma.user.findUnique({ where: { id: userId } });
+        if (!existing)
+            throw new api_error_1.ApiError(404, 'User not found');
+        if (input.email && input.email !== existing.email) {
+            const emailTaken = await prisma_1.prisma.user.findUnique({ where: { email: input.email } });
+            if (emailTaken)
+                throw new api_error_1.ApiError(409, 'Email already in use');
+        }
+        const passwordHash = input.password ? await bcrypt_1.default.hash(input.password, 10) : undefined;
+        const selectedRole = input.role?.trim().toUpperCase();
+        const isCoreRole = selectedRole ? coreRoles.includes(selectedRole) : undefined;
+        const user = await prisma_1.prisma.user.update({
+            where: { id: userId },
+            data: {
+                name: input.name,
+                email: input.email,
+                role: selectedRole ? (isCoreRole ? selectedRole : 'USER') : undefined,
+                ...(passwordHash ? { passwordHash } : {}),
+            },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+                createdAt: true,
+                updatedAt: true,
+            },
+        });
+        if (selectedRole) {
+            if (isCoreRole) {
+                await prisma_1.prisma.$executeRaw `DELETE FROM admin_user_roles WHERE userId = ${userId}`;
+            }
+            else {
+                await prisma_1.prisma.$executeRaw `
+          INSERT INTO admin_user_roles (userId, roleKey)
+          VALUES (${userId}, ${selectedRole})
+          ON DUPLICATE KEY UPDATE roleKey = VALUES(roleKey)
+        `;
+            }
+        }
+        await activity_service_1.activityService.create({
+            action: 'UPDATE',
+            entityType: 'ADMIN_USER',
+            entityId: user.id,
+            description: `Admin updated user ${user.email}`,
+            userId: actorId,
+        });
+        return {
+            ...user,
+            role: selectedRole ?? user.role,
+        };
+    },
+    deleteUser: async (userId, actorId) => {
+        const user = await prisma_1.prisma.user.findUnique({ where: { id: userId } });
+        if (!user)
+            throw new api_error_1.ApiError(404, 'User not found');
+        if (actorId && actorId === userId)
+            throw new api_error_1.ApiError(400, 'You cannot delete your own account');
+        await ensureSystemRoles();
+        await prisma_1.prisma.$executeRaw `DELETE FROM admin_user_roles WHERE userId = ${userId}`;
+        await prisma_1.prisma.user.delete({ where: { id: userId } });
+        await activity_service_1.activityService.create({
+            action: 'DELETE',
+            entityType: 'ADMIN_USER',
+            entityId: userId,
+            description: `Admin deleted user ${user.email}`,
+            userId: actorId,
+        });
+    },
+    listRoles: async () => {
+        await ensureSystemRoles();
+        const rows = await prisma_1.prisma.$queryRaw `
+      SELECT id, roleKey, name, permissions, isSystem, createdAt, updatedAt
+      FROM admin_roles
+      ORDER BY createdAt DESC
+    `;
+        const roleStats = await prisma_1.prisma.user.groupBy({
+            by: ['role'],
+            _count: { _all: true },
+        });
+        const userCountByRole = new Map(roleStats.map((entry) => [entry.role, entry._count._all]));
+        return rows.map((row) => ({
+            ...summarizePermissionDisplay(parsePermissions(row.permissions)),
+            id: row.id,
+            roleKey: row.roleKey,
+            name: row.name,
+            role: row.roleKey,
+            permissions: parsePermissions(row.permissions),
+            userCount: userCountByRole.get(row.roleKey) ?? 0,
+            isSystem: Boolean(row.isSystem),
+            createdAt: formatDate(row.createdAt),
+            updatedAt: formatDate(row.updatedAt),
+        }));
+    },
+    createRole: async (input, actorId) => {
+        await ensureSystemRoles();
+        const roleKey = toRoleKey(input.name);
+        if (!roleKey)
+            throw new api_error_1.ApiError(400, 'Role name is invalid');
+        const existing = await prisma_1.prisma.$queryRaw `
+      SELECT id, roleKey, name, permissions, isSystem, createdAt, updatedAt
+      FROM admin_roles
+      WHERE roleKey = ${roleKey}
+      LIMIT 1
+    `;
+        if (existing.length > 0)
+            throw new api_error_1.ApiError(409, 'Role already exists');
+        const id = (0, node_crypto_1.randomUUID)();
+        await prisma_1.prisma.$executeRaw `
+      INSERT INTO admin_roles (id, roleKey, name, permissions, isSystem)
+      VALUES (${id}, ${roleKey}, ${input.name.trim()}, ${JSON.stringify(input.permissions)}, 0)
+    `;
+        await activity_service_1.activityService.create({
+            action: 'CREATE',
+            entityType: 'ADMIN_ROLE',
+            entityId: id,
+            description: `Admin created role ${input.name}`,
+            userId: actorId,
+        });
+        const created = await prisma_1.prisma.$queryRaw `
+      SELECT id, roleKey, name, permissions, isSystem, createdAt, updatedAt
+      FROM admin_roles
+      WHERE id = ${id}
+      LIMIT 1
+    `;
+        const row = created[0];
+        return {
+            ...summarizePermissionDisplay(parsePermissions(row.permissions)),
+            id: row.id,
+            roleKey: row.roleKey,
+            name: row.name,
+            role: row.roleKey,
+            permissions: parsePermissions(row.permissions),
+            userCount: 0,
+            isSystem: Boolean(row.isSystem),
+            createdAt: formatDate(row.createdAt),
+            updatedAt: formatDate(row.updatedAt),
+        };
+    },
+    updateRole: async (id, input, actorId) => {
+        await ensureSystemRoles();
+        const existingRows = await prisma_1.prisma.$queryRaw `
+      SELECT id, roleKey, name, permissions, isSystem, createdAt, updatedAt
+      FROM admin_roles
+      WHERE id = ${id}
+      LIMIT 1
+    `;
+        const existing = existingRows[0];
+        if (!existing)
+            throw new api_error_1.ApiError(404, 'Role not found');
+        const nextName = input.name?.trim() || existing.name;
+        const nextPermissions = input.permissions ?? parsePermissions(existing.permissions);
+        await prisma_1.prisma.$executeRaw `
+      UPDATE admin_roles
+      SET name = ${nextName}, permissions = ${JSON.stringify(nextPermissions)}
+      WHERE id = ${id}
+    `;
+        await activity_service_1.activityService.create({
+            action: 'UPDATE',
+            entityType: 'ADMIN_ROLE',
+            entityId: id,
+            description: `Admin updated role ${nextName}`,
+            userId: actorId,
+        });
+        const updatedRows = await prisma_1.prisma.$queryRaw `
+      SELECT id, roleKey, name, permissions, isSystem, createdAt, updatedAt
+      FROM admin_roles
+      WHERE id = ${id}
+      LIMIT 1
+    `;
+        const updated = updatedRows[0];
+        const assignedUsers = await prisma_1.prisma.user.count({ where: { role: updated.roleKey } });
+        return {
+            ...summarizePermissionDisplay(parsePermissions(updated.permissions)),
+            id: updated.id,
+            roleKey: updated.roleKey,
+            name: updated.name,
+            role: updated.roleKey,
+            permissions: parsePermissions(updated.permissions),
+            userCount: assignedUsers,
+            isSystem: Boolean(updated.isSystem),
+            createdAt: formatDate(updated.createdAt),
+            updatedAt: formatDate(updated.updatedAt),
+        };
+    },
+    deleteRole: async (id, actorId) => {
+        await ensureSystemRoles();
+        const rows = await prisma_1.prisma.$queryRaw `
+      SELECT id, roleKey, name, permissions, isSystem, createdAt, updatedAt
+      FROM admin_roles
+      WHERE id = ${id}
+      LIMIT 1
+    `;
+        const role = rows[0];
+        if (!role)
+            throw new api_error_1.ApiError(404, 'Role not found');
+        if (role.isSystem)
+            throw new api_error_1.ApiError(400, 'System roles cannot be deleted');
+        const assignedUsers = await prisma_1.prisma.user.count({ where: { role: role.roleKey } });
+        if (assignedUsers > 0) {
+            throw new api_error_1.ApiError(400, 'This role cannot be deleted because it is assigned to users');
+        }
+        await prisma_1.prisma.$executeRaw `DELETE FROM admin_roles WHERE id = ${id}`;
+        await activity_service_1.activityService.create({
+            action: 'DELETE',
+            entityType: 'ADMIN_ROLE',
+            entityId: id,
+            description: `Admin deleted role ${role.name}`,
+            userId: actorId,
+        });
+    },
+};

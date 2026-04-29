@@ -24,11 +24,18 @@ interface ItemInput {
   tags?: string[]
   quantity: number
   reservedQty?: number
+  expiryDate?: string
   price: number
   supplier: string
   location: string
   description?: string
   lowStockAt?: number
+  batches?: Array<{
+    batchNumber: string
+    lotNumber?: string
+    expiryDate?: string
+    quantity: number
+  }>
   variants?: ItemVariantInput[]
 }
 
@@ -37,6 +44,7 @@ const itemInclude = {
   categories: { include: { category: true } },
   tags: { include: { tag: true } },
   variants: true,
+  batches: true,
 } as const
 
 const mapItemResponse = (
@@ -71,6 +79,7 @@ export const itemService = {
           sku: input.sku,
           quantity: input.quantity,
           reservedQty: input.reservedQty ?? 0,
+          expiryDate: input.expiryDate ? new Date(input.expiryDate) : undefined,
           price: new Prisma.Decimal(input.price),
           supplier: input.supplier,
           location: input.location,
@@ -111,6 +120,16 @@ export const itemService = {
                 })),
               }
             : undefined,
+          batches: input.batches?.length
+            ? {
+                create: input.batches.map((batch) => ({
+                  batchNumber: batch.batchNumber,
+                  lotNumber: batch.lotNumber,
+                  expiryDate: batch.expiryDate ? new Date(batch.expiryDate) : undefined,
+                  quantity: batch.quantity,
+                })),
+              }
+            : undefined,
         },
         include: itemInclude,
       })
@@ -135,6 +154,9 @@ export const itemService = {
         category: string
         description?: string
         reservedQty?: number
+        expiryDate?: string
+        batchNumber?: string
+        lotNumber?: string
       }
     >,
     userId?: string,
@@ -158,6 +180,7 @@ export const itemService = {
             name: row.name,
             quantity: row.quantity,
             reservedQty: row.reservedQty ?? existing.reservedQty,
+            expiryDate: row.expiryDate ? new Date(row.expiryDate) : existing.expiryDate,
             price: new Prisma.Decimal(row.price),
             supplier: row.supplier,
             location: row.location,
@@ -173,6 +196,7 @@ export const itemService = {
             sku: row.sku,
             quantity: row.quantity,
             reservedQty: row.reservedQty ?? 0,
+            expiryDate: row.expiryDate ? new Date(row.expiryDate) : undefined,
             price: new Prisma.Decimal(row.price),
             supplier: row.supplier,
             location: row.location,
@@ -183,6 +207,18 @@ export const itemService = {
             categories: {
               create: [{ categoryId: category.id }],
             },
+            batches: row.batchNumber
+              ? {
+                  create: [
+                    {
+                      batchNumber: row.batchNumber,
+                      lotNumber: row.lotNumber,
+                      expiryDate: row.expiryDate ? new Date(row.expiryDate) : undefined,
+                      quantity: row.quantity,
+                    },
+                  ],
+                }
+              : undefined,
           },
         })
         created += 1
@@ -205,10 +241,36 @@ export const itemService = {
     const limit = Number(query.limit ?? '10')
     const skip = (page - 1) * limit
 
+    const expiredOnly = query.expired === 'true'
+    const lowStockOnly = query.lowStock === 'true'
+    const now = new Date()
+
+    const lowStockIds = lowStockOnly
+      ? (
+          await prisma.$queryRaw<Array<{ id: string }>>(
+            Prisma.sql`SELECT id FROM Item WHERE quantity <= lowStockAt`,
+          )
+        ).map((row) => row.id)
+      : undefined
+
     const where: Prisma.ItemWhereInput = {
       name: query.search ? { contains: query.search } : undefined,
-      categoryId: query.categoryId || undefined,
+      categoryId: query.categoryId || query.category || undefined,
       location: query.location ? { contains: query.location } : undefined,
+      OR: expiredOnly
+        ? [
+            { expiryDate: { lt: now } },
+            {
+              batches: {
+                some: {
+                  expiryDate: { lt: now },
+                  quantity: { gt: 0 },
+                },
+              },
+            },
+          ]
+        : undefined,
+      id: lowStockOnly ? { in: lowStockIds } : undefined,
       tags: query.tag
         ? {
             some: {
@@ -238,6 +300,106 @@ export const itemService = {
     const item = await prisma.item.findUnique({ where: { id }, include: itemInclude })
     if (!item) throw new ApiError(404, 'Item not found')
     return mapItemResponse(item)
+  },
+
+  timeline: async (id: string) => {
+    const item = await prisma.item.findUnique({
+      where: { id },
+      select: { id: true, name: true, sku: true, createdAt: true },
+    })
+    if (!item) throw new ApiError(404, 'Item not found')
+
+    const [activities, audits, movements, scans] = await Promise.all([
+      prisma.activityLog.findMany({
+        where: { itemId: id },
+        include: { user: { select: { id: true, name: true, email: true } } },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.auditTrail.findMany({
+        where: { itemId: id },
+        include: { user: { select: { id: true, name: true, email: true } } },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.stockMovement.findMany({
+        where: { itemId: id },
+        include: { user: { select: { id: true, name: true, email: true } } },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.scanHistory.findMany({
+        where: { itemId: id },
+        include: { user: { select: { id: true, name: true, email: true } } },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ])
+
+    const timeline = [
+      {
+        id: `item-created-${item.id}`,
+        at: item.createdAt,
+        type: 'ITEM_CREATED',
+        title: 'Item created',
+        description: `${item.name} (${item.sku}) was created`,
+        actor: null,
+        meta: null,
+      },
+      ...activities.map((row) => ({
+        id: `activity-${row.id}`,
+        at: row.createdAt,
+        type: row.action,
+        title: `Activity: ${row.action.replaceAll('_', ' ')}`,
+        description: row.description ?? null,
+        actor: row.user ?? null,
+        meta: {
+          entityType: row.entityType,
+          entityId: row.entityId,
+        },
+      })),
+      ...audits.map((row) => ({
+        id: `audit-${row.id}`,
+        at: row.createdAt,
+        type: 'CHANGE_AUDIT',
+        title: 'Field changes recorded',
+        description: `Changes were captured for ${row.entityType}`,
+        actor: row.user ?? null,
+        meta: {
+          oldData: row.oldData,
+          newData: row.newData,
+        },
+      })),
+      ...movements.map((row) => ({
+        id: `movement-${row.id}`,
+        at: row.createdAt,
+        type: `STOCK_${row.type}`,
+        title: `Stock ${row.type.toLowerCase()}`,
+        description: `Qty ${row.quantity} (before ${row.beforeQty}, after ${row.afterQty})`,
+        actor: row.user ?? null,
+        meta: {
+          reason: row.adjustmentReason,
+          note: row.note,
+          reference: row.reference,
+          sourceWarehouse: row.sourceWarehouse,
+          destinationWarehouse: row.destinationWarehouse,
+        },
+      })),
+      ...scans.map((row) => ({
+        id: `scan-${row.id}`,
+        at: row.createdAt,
+        type: 'SCAN',
+        title: 'Item scanned',
+        description: row.note ?? `Code ${row.qrCode} scanned`,
+        actor: row.user ?? null,
+        meta: {
+          qrCode: row.qrCode,
+        },
+      })),
+    ]
+      .sort((a, b) => b.at.getTime() - a.at.getTime())
+      .map((entry) => ({ ...entry, at: entry.at.toISOString() }))
+
+    return {
+      item,
+      timeline,
+    }
   },
 
   getByCode: async (code: string) => {
@@ -277,6 +439,9 @@ export const itemService = {
       if (input.variants) {
         await tx.itemVariant.deleteMany({ where: { itemId: id } })
       }
+      if (input.batches) {
+        await tx.itemBatch.deleteMany({ where: { itemId: id } })
+      }
 
       const row = await tx.item.update({
         where: { id },
@@ -286,6 +451,7 @@ export const itemService = {
           categoryId: input.categoryId,
           quantity: input.quantity,
           reservedQty: input.reservedQty,
+          expiryDate: input.expiryDate ? new Date(input.expiryDate) : undefined,
           price: typeof input.price === 'number' ? new Prisma.Decimal(input.price) : undefined,
           supplier: input.supplier,
           location: input.location,
@@ -322,6 +488,16 @@ export const itemService = {
                   reservedQty: variant.reservedQty ?? 0,
                   price:
                     typeof variant.price === 'number' ? new Prisma.Decimal(variant.price) : undefined,
+                })),
+              }
+            : undefined,
+          batches: input.batches
+            ? {
+                create: input.batches.map((batch) => ({
+                  batchNumber: batch.batchNumber,
+                  lotNumber: batch.lotNumber,
+                  expiryDate: batch.expiryDate ? new Date(batch.expiryDate) : undefined,
+                  quantity: batch.quantity,
                 })),
               }
             : undefined,

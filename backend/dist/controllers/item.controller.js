@@ -34,6 +34,14 @@ exports.itemController = {
             next(error);
         }
     },
+    timeline: async (req, res, next) => {
+        try {
+            res.json(await item_service_1.itemService.timeline(String(req.params.id)));
+        }
+        catch (error) {
+            next(error);
+        }
+    },
     update: async (req, res, next) => {
         try {
             res.json(await item_service_1.itemService.update(String(req.params.id), req.body, req.user?.userId));
@@ -85,6 +93,9 @@ exports.itemController = {
                 supplier: String(record.supplier ?? record.Supplier ?? ''),
                 location: String(record.location ?? record.Location ?? ''),
                 description: String(record.description ?? record.Description ?? ''),
+                expiryDate: String(record.expiryDate ?? record.ExpiryDate ?? ''),
+                batchNumber: String(record.batchNumber ?? record.BatchNumber ?? ''),
+                lotNumber: String(record.lotNumber ?? record.LotNumber ?? ''),
             }));
             const result = await item_service_1.itemService.createManyFromImport(rows, req.user?.userId);
             res.status(201).json(result);

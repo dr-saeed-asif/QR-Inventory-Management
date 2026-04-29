@@ -13,10 +13,21 @@ export const itemSchema = z.object({
   tags: z.array(z.string().min(1)).optional(),
   quantity: z.number().min(0, 'Quantity cannot be negative'),
   reservedQty: z.number().min(0, 'Reserved qty cannot be negative').optional(),
+  expiryDate: z.string().optional(),
   price: z.number().min(0, 'Price cannot be negative'),
   supplier: z.string().min(2, 'Supplier is required'),
   location: z.string().min(2, 'Location is required'),
   description: z.string().optional(),
+  batches: z
+    .array(
+      z.object({
+        batchNumber: z.string().min(1),
+        lotNumber: z.string().optional(),
+        expiryDate: z.string().optional(),
+        quantity: z.number().min(0),
+      }),
+    )
+    .optional(),
   variants: z
     .array(
       z.object({

@@ -1,7 +1,10 @@
+export type UserRole = 'ADMIN' | 'MANAGER' | 'USER'
+
 export interface User {
   id: string
   name: string
   email: string
+  role: UserRole
 }
 
 export interface Category {
@@ -23,6 +26,24 @@ export interface ItemVariant {
   price?: number
 }
 
+export interface ItemBatch {
+  id?: string
+  batchNumber: string
+  lotNumber?: string
+  expiryDate?: string
+  quantity: number
+}
+
+export interface ItemTimelineEvent {
+  id: string
+  at: string
+  type: string
+  title: string
+  description?: string | null
+  actor?: { id: string; name: string; email: string } | null
+  meta?: Record<string, unknown> | null
+}
+
 export interface InventoryItem {
   id: string
   name: string
@@ -33,6 +54,7 @@ export interface InventoryItem {
   quantity: number
   reservedQty: number
   availableQty: number
+  expiryDate?: string
   price: number
   supplier: string
   location: string
@@ -40,6 +62,7 @@ export interface InventoryItem {
   qrValue: string
   barcodeValue: string
   variants?: ItemVariant[]
+  batches?: ItemBatch[]
   createdAt: string
 }
 
@@ -47,6 +70,8 @@ export interface InventoryFilters {
   search?: string
   category?: string
   location?: string
+  lowStock?: boolean
+  expired?: boolean
   page?: number
   pageSize?: number
   sortBy?: string

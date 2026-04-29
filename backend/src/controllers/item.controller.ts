@@ -27,6 +27,13 @@ export const itemController = {
       next(error)
     }
   },
+  timeline: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(await itemService.timeline(String(req.params.id)))
+    } catch (error) {
+      next(error)
+    }
+  },
   update: async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(await itemService.update(String(req.params.id), req.body, req.user?.userId))
@@ -76,6 +83,9 @@ export const itemController = {
         supplier: String(record.supplier ?? record.Supplier ?? ''),
         location: String(record.location ?? record.Location ?? ''),
         description: String(record.description ?? record.Description ?? ''),
+        expiryDate: String(record.expiryDate ?? record.ExpiryDate ?? ''),
+        batchNumber: String(record.batchNumber ?? record.BatchNumber ?? ''),
+        lotNumber: String(record.lotNumber ?? record.LotNumber ?? ''),
       }))
 
       const result = await itemService.createManyFromImport(rows, req.user?.userId)

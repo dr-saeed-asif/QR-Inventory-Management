@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { itemSchema, type ItemInput } from '@/lib/validators'
 import type { Category } from '@/types'
+import type { ItemTimelineEvent } from '@/types'
 import { useToast } from '@/hooks/use-toast'
 import { AddItemModal } from '@/components/modals/add-item-modal'
 import { InventoryModal } from '@/components/modals/inventory-modal'
@@ -21,6 +22,8 @@ export const InventoryListPage = () => {
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
   const [location, setLocation] = useState('')
+  const [lowStockOnly, setLowStockOnly] = useState(false)
+  const [expiredOnly, setExpiredOnly] = useState(false)
   const [sortBy] = useState('name')
   const [sortOrder] = useState<'asc' | 'desc'>('asc')
   const [page, setPage] = useState(1)
@@ -40,29 +43,45 @@ export const InventoryListPage = () => {
     tags: [],
     quantity: 0,
     reservedQty: 0,
+    expiryDate: '',
     price: 0,
     supplier: '',
     location: '',
     description: '',
+    batches: [],
     variants: [],
   })
   const [addItemErrors, setAddItemErrors] = useState<Partial<Record<keyof ItemInput, string>>>({})
   const [addItemSubmitting, setAddItemSubmitting] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
+  const [timelineEvents, setTimelineEvents] = useState<ItemTimelineEvent[]>([])
+  const [loadingTimeline, setLoadingTimeline] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
   const [importing, setImporting] = useState(false)
   const { toast } = useToast()
 
-  const loadItems = (overrides?: Partial<{ search: string; category: string; location: string; sortBy: string; sortOrder: 'asc' | 'desc'; page: number }>) => {
+  const loadItems = (overrides?: Partial<{ search: string; category: string; location: string; sortBy: string; sortOrder: 'asc' | 'desc'; page: number; lowStockOnly: boolean; expiredOnly: boolean }>) => {
     const qSearch = overrides?.search ?? search
     const qCategory = overrides?.category ?? category
     const qLocation = overrides?.location ?? location
     const qSortBy = overrides?.sortBy ?? sortBy
     const qSortOrder = overrides?.sortOrder ?? sortOrder
     const qPage = overrides?.page ?? page
+    const qLowStock = overrides?.lowStockOnly ?? lowStockOnly
+    const qExpired = overrides?.expiredOnly ?? expiredOnly
 
     return inventoryService
-      .list({ search: qSearch, category: qCategory, location: qLocation, sortBy: qSortBy, sortOrder: qSortOrder, page: qPage, pageSize: 8 })
+      .list({
+        search: qSearch,
+        category: qCategory,
+        location: qLocation,
+        lowStock: qLowStock,
+        expired: qExpired,
+        sortBy: qSortBy,
+        sortOrder: qSortOrder,
+        page: qPage,
+        pageSize: 8,
+      })
       .then((res) => {
         setItems(res.data)
         setTotal(res.total)
@@ -74,8 +93,14 @@ export const InventoryListPage = () => {
   const debouncedLocation = useDebounce(location, 300)
 
   useEffect(() => {
-    void loadItems({ search: debouncedSearch, category: debouncedCategory, location: debouncedLocation })
-  }, [debouncedSearch, debouncedCategory, debouncedLocation, page, sortBy, sortOrder])
+    void loadItems({
+      search: debouncedSearch,
+      category: debouncedCategory,
+      location: debouncedLocation,
+      lowStockOnly,
+      expiredOnly,
+    })
+  }, [debouncedSearch, debouncedCategory, debouncedLocation, lowStockOnly, expiredOnly, page, sortBy, sortOrder])
 
   useEffect(() => {
     categoryService.list().then(setCategories)
@@ -179,6 +204,12 @@ export const InventoryListPage = () => {
     setModalItem(item)
     setModalType('view')
     setModalOpen(true)
+    setLoadingTimeline(true)
+    void inventoryService
+      .timeline(item.id)
+      .then((timeline) => setTimelineEvents(timeline))
+      .catch(() => setTimelineEvents([]))
+      .finally(() => setLoadingTimeline(false))
   }
 
   const openEditModal = (item: InventoryItem) => {
@@ -228,6 +259,7 @@ export const InventoryListPage = () => {
   const handleAddItemSubmit = async () => {
     const normalizedForm: ItemInput = {
       ...addItemForm,
+      expiryDate: addItemForm.expiryDate?.trim() ? addItemForm.expiryDate : undefined,
       categoryIds: addItemForm.categoryIds?.length ? addItemForm.categoryIds : undefined,
       tags: addItemForm.tags?.length ? addItemForm.tags : undefined,
       variants:
@@ -235,6 +267,13 @@ export const InventoryListPage = () => {
           ...variant,
           sku: variant.sku.trim(),
           quantity: variant.quantity ?? 0,
+        })) ?? undefined,
+      batches:
+        addItemForm.batches?.filter((batch) => batch.batchNumber?.trim()).map((batch) => ({
+          ...batch,
+          batchNumber: batch.batchNumber.trim(),
+          expiryDate: batch.expiryDate?.trim() ? batch.expiryDate : undefined,
+          quantity: batch.quantity ?? addItemForm.quantity,
         })) ?? undefined,
     }
     const parsed = itemSchema.safeParse(normalizedForm)
@@ -262,10 +301,12 @@ export const InventoryListPage = () => {
         tags: [],
         quantity: 0,
         reservedQty: 0,
+        expiryDate: '',
         price: 0,
         supplier: '',
         location: '',
         description: '',
+        batches: [],
         variants: [],
       })
       await loadItems()
@@ -311,8 +352,8 @@ export const InventoryListPage = () => {
     return (
       <Card className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Inventoriessss</h2>
-          {/* <div className="flex items-center gap-2">
+          <h2 className="text-lg font-semibold">Inventories</h2>
+          <div className="flex items-center gap-2">
             <Input
               type="file"
               className="h-10 w-auto"
@@ -323,7 +364,7 @@ export const InventoryListPage = () => {
               {importing ? 'Importing...' : 'Import CSV/Excel'}
             </Button>
             <Button onClick={() => setAddItemModalOpen(true)}>+ Add Item</Button>
-          </div> */}
+          </div>
         </div>
         <EmptyState title="No inventory found" subtitle="Add your first item or import CSV/Excel to get started." />
         <AddItemModal
@@ -361,6 +402,14 @@ export const InventoryListPage = () => {
         <Input placeholder="Search inventory..." value={search} onChange={(e) => setSearch(e.target.value)} />
         <Input placeholder="Filter category" value={category} onChange={(e) => setCategory(e.target.value)} />
         <Input placeholder="Filter location" value={location} onChange={(e) => setLocation(e.target.value)} />
+        <label className="flex h-10 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm">
+          <input type="checkbox" checked={lowStockOnly} onChange={(e) => setLowStockOnly(e.target.checked)} />
+          Low stock only
+        </label>
+        <label className="flex h-10 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm">
+          <input type="checkbox" checked={expiredOnly} onChange={(e) => setExpiredOnly(e.target.checked)} />
+          Expired only
+        </label>
         {/* <select className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
           <option value="name">Sort by Name</option>
           <option value="quantity">Sort by Quantity</option>
@@ -381,6 +430,7 @@ export const InventoryListPage = () => {
               <th className="sticky top-0 z-10 w-[90px] whitespace-nowrap bg-white px-3 py-2">On Hand</th>
               <th className="sticky top-0 z-10 w-[90px] whitespace-nowrap bg-white px-3 py-2">Reserved</th>
               <th className="sticky top-0 z-10 w-[100px] whitespace-nowrap bg-white px-3 py-2">Available</th>
+              <th className="sticky top-0 z-10 w-[130px] whitespace-nowrap bg-white px-3 py-2">Expiry</th>
               <th className="sticky top-0 z-10 w-[160px] whitespace-nowrap bg-white px-3 py-2">Location</th>
               <th className="sticky top-0 z-10 w-[220px] whitespace-nowrap bg-white px-3 py-2">Codes</th>
               <th className="sticky top-0 z-10 w-[340px] whitespace-nowrap bg-white px-3 py-2">Actions</th>
@@ -396,6 +446,7 @@ export const InventoryListPage = () => {
                   <td className="px-3 py-3">{item.quantity}</td>
                   <td className="px-3 py-3">{item.reservedQty}</td>
                   <td className="px-3 py-3">{item.availableQty}</td>
+                  <td className="px-3 py-3">{item.expiryDate ? new Date(item.expiryDate).toLocaleDateString() : '-'}</td>
                   <td className="px-3 py-3">{item.location}</td>
                   <td className="space-x-1 px-3 py-3 whitespace-nowrap">
                     <Button type="button" variant="outline" onClick={() => openQrModal(item)}>Show QR</Button>
@@ -436,6 +487,8 @@ export const InventoryListPage = () => {
         onPrintImage={printImage}
         onSaveEdit={() => modalItem && onSaveEdit(modalItem.id)}
         onConfirmDelete={confirmDelete}
+        timelineEvents={timelineEvents}
+        loadingTimeline={loadingTimeline}
       />
       <AddItemModal
         open={addItemModalOpen}

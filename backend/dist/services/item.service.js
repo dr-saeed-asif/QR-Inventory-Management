@@ -12,6 +12,7 @@ const itemInclude = {
     categories: { include: { category: true } },
     tags: { include: { tag: true } },
     variants: true,
+    batches: true,
 };
 const mapItemResponse = (item) => ({
     ...item,
@@ -40,6 +41,7 @@ exports.itemService = {
                     sku: input.sku,
                     quantity: input.quantity,
                     reservedQty: input.reservedQty ?? 0,
+                    expiryDate: input.expiryDate ? new Date(input.expiryDate) : undefined,
                     price: new client_1.Prisma.Decimal(input.price),
                     supplier: input.supplier,
                     location: input.location,
@@ -79,6 +81,16 @@ exports.itemService = {
                             })),
                         }
                         : undefined,
+                    batches: input.batches?.length
+                        ? {
+                            create: input.batches.map((batch) => ({
+                                batchNumber: batch.batchNumber,
+                                lotNumber: batch.lotNumber,
+                                expiryDate: batch.expiryDate ? new Date(batch.expiryDate) : undefined,
+                                quantity: batch.quantity,
+                            })),
+                        }
+                        : undefined,
                 },
                 include: itemInclude,
             });
@@ -112,6 +124,7 @@ exports.itemService = {
                         name: row.name,
                         quantity: row.quantity,
                         reservedQty: row.reservedQty ?? existing.reservedQty,
+                        expiryDate: row.expiryDate ? new Date(row.expiryDate) : existing.expiryDate,
                         price: new client_1.Prisma.Decimal(row.price),
                         supplier: row.supplier,
                         location: row.location,
@@ -128,6 +141,7 @@ exports.itemService = {
                         sku: row.sku,
                         quantity: row.quantity,
                         reservedQty: row.reservedQty ?? 0,
+                        expiryDate: row.expiryDate ? new Date(row.expiryDate) : undefined,
                         price: new client_1.Prisma.Decimal(row.price),
                         supplier: row.supplier,
                         location: row.location,
@@ -138,6 +152,18 @@ exports.itemService = {
                         categories: {
                             create: [{ categoryId: category.id }],
                         },
+                        batches: row.batchNumber
+                            ? {
+                                create: [
+                                    {
+                                        batchNumber: row.batchNumber,
+                                        lotNumber: row.lotNumber,
+                                        expiryDate: row.expiryDate ? new Date(row.expiryDate) : undefined,
+                                        quantity: row.quantity,
+                                    },
+                                ],
+                            }
+                            : undefined,
                     },
                 });
                 created += 1;
@@ -156,10 +182,30 @@ exports.itemService = {
         const page = Number(query.page ?? '1');
         const limit = Number(query.limit ?? '10');
         const skip = (page - 1) * limit;
+        const expiredOnly = query.expired === 'true';
+        const lowStockOnly = query.lowStock === 'true';
+        const now = new Date();
+        const lowStockIds = lowStockOnly
+            ? (await prisma_1.prisma.$queryRaw(client_1.Prisma.sql `SELECT id FROM Item WHERE quantity <= lowStockAt`)).map((row) => row.id)
+            : undefined;
         const where = {
             name: query.search ? { contains: query.search } : undefined,
-            categoryId: query.categoryId || undefined,
+            categoryId: query.categoryId || query.category || undefined,
             location: query.location ? { contains: query.location } : undefined,
+            OR: expiredOnly
+                ? [
+                    { expiryDate: { lt: now } },
+                    {
+                        batches: {
+                            some: {
+                                expiryDate: { lt: now },
+                                quantity: { gt: 0 },
+                            },
+                        },
+                    },
+                ]
+                : undefined,
+            id: lowStockOnly ? { in: lowStockIds } : undefined,
             tags: query.tag
                 ? {
                     some: {
@@ -187,6 +233,103 @@ exports.itemService = {
         if (!item)
             throw new api_error_1.ApiError(404, 'Item not found');
         return mapItemResponse(item);
+    },
+    timeline: async (id) => {
+        const item = await prisma_1.prisma.item.findUnique({
+            where: { id },
+            select: { id: true, name: true, sku: true, createdAt: true },
+        });
+        if (!item)
+            throw new api_error_1.ApiError(404, 'Item not found');
+        const [activities, audits, movements, scans] = await Promise.all([
+            prisma_1.prisma.activityLog.findMany({
+                where: { itemId: id },
+                include: { user: { select: { id: true, name: true, email: true } } },
+                orderBy: { createdAt: 'desc' },
+            }),
+            prisma_1.prisma.auditTrail.findMany({
+                where: { itemId: id },
+                include: { user: { select: { id: true, name: true, email: true } } },
+                orderBy: { createdAt: 'desc' },
+            }),
+            prisma_1.prisma.stockMovement.findMany({
+                where: { itemId: id },
+                include: { user: { select: { id: true, name: true, email: true } } },
+                orderBy: { createdAt: 'desc' },
+            }),
+            prisma_1.prisma.scanHistory.findMany({
+                where: { itemId: id },
+                include: { user: { select: { id: true, name: true, email: true } } },
+                orderBy: { createdAt: 'desc' },
+            }),
+        ]);
+        const timeline = [
+            {
+                id: `item-created-${item.id}`,
+                at: item.createdAt,
+                type: 'ITEM_CREATED',
+                title: 'Item created',
+                description: `${item.name} (${item.sku}) was created`,
+                actor: null,
+                meta: null,
+            },
+            ...activities.map((row) => ({
+                id: `activity-${row.id}`,
+                at: row.createdAt,
+                type: row.action,
+                title: `Activity: ${row.action.replaceAll('_', ' ')}`,
+                description: row.description ?? null,
+                actor: row.user ?? null,
+                meta: {
+                    entityType: row.entityType,
+                    entityId: row.entityId,
+                },
+            })),
+            ...audits.map((row) => ({
+                id: `audit-${row.id}`,
+                at: row.createdAt,
+                type: 'CHANGE_AUDIT',
+                title: 'Field changes recorded',
+                description: `Changes were captured for ${row.entityType}`,
+                actor: row.user ?? null,
+                meta: {
+                    oldData: row.oldData,
+                    newData: row.newData,
+                },
+            })),
+            ...movements.map((row) => ({
+                id: `movement-${row.id}`,
+                at: row.createdAt,
+                type: `STOCK_${row.type}`,
+                title: `Stock ${row.type.toLowerCase()}`,
+                description: `Qty ${row.quantity} (before ${row.beforeQty}, after ${row.afterQty})`,
+                actor: row.user ?? null,
+                meta: {
+                    reason: row.adjustmentReason,
+                    note: row.note,
+                    reference: row.reference,
+                    sourceWarehouse: row.sourceWarehouse,
+                    destinationWarehouse: row.destinationWarehouse,
+                },
+            })),
+            ...scans.map((row) => ({
+                id: `scan-${row.id}`,
+                at: row.createdAt,
+                type: 'SCAN',
+                title: 'Item scanned',
+                description: row.note ?? `Code ${row.qrCode} scanned`,
+                actor: row.user ?? null,
+                meta: {
+                    qrCode: row.qrCode,
+                },
+            })),
+        ]
+            .sort((a, b) => b.at.getTime() - a.at.getTime())
+            .map((entry) => ({ ...entry, at: entry.at.toISOString() }));
+        return {
+            item,
+            timeline,
+        };
     },
     getByCode: async (code) => {
         const item = await prisma_1.prisma.item.findFirst({
@@ -224,6 +367,9 @@ exports.itemService = {
             if (input.variants) {
                 await tx.itemVariant.deleteMany({ where: { itemId: id } });
             }
+            if (input.batches) {
+                await tx.itemBatch.deleteMany({ where: { itemId: id } });
+            }
             const row = await tx.item.update({
                 where: { id },
                 data: {
@@ -232,6 +378,7 @@ exports.itemService = {
                     categoryId: input.categoryId,
                     quantity: input.quantity,
                     reservedQty: input.reservedQty,
+                    expiryDate: input.expiryDate ? new Date(input.expiryDate) : undefined,
                     price: typeof input.price === 'number' ? new client_1.Prisma.Decimal(input.price) : undefined,
                     supplier: input.supplier,
                     location: input.location,
@@ -267,6 +414,16 @@ exports.itemService = {
                                 quantity: variant.quantity ?? 0,
                                 reservedQty: variant.reservedQty ?? 0,
                                 price: typeof variant.price === 'number' ? new client_1.Prisma.Decimal(variant.price) : undefined,
+                            })),
+                        }
+                        : undefined,
+                    batches: input.batches
+                        ? {
+                            create: input.batches.map((batch) => ({
+                                batchNumber: batch.batchNumber,
+                                lotNumber: batch.lotNumber,
+                                expiryDate: batch.expiryDate ? new Date(batch.expiryDate) : undefined,
+                                quantity: batch.quantity,
                             })),
                         }
                         : undefined,

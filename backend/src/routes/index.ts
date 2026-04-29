@@ -6,6 +6,7 @@ import qrRoutes from './qr.routes'
 import scanRoutes from './scan.routes'
 import reportRoutes from './report.routes'
 import stockRoutes from './stock.routes'
+import adminRoutes from './admin.routes'
 
 const router = Router()
 
@@ -16,5 +17,6 @@ router.use('/qr', qrRoutes)
 router.use('/scan', scanRoutes)
 router.use('/reports', reportRoutes)
 router.use('/stock', stockRoutes)
+router.use('/admin', adminRoutes)
 
 export default router

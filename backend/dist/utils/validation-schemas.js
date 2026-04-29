@@ -1,12 +1,15 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.stockAdjustmentSchema = exports.stockTransferSchema = exports.stockOutSchema = exports.stockInSchema = exports.scanSchema = exports.itemUpdateSchema = exports.itemSchema = exports.categorySchema = exports.loginSchema = exports.registerSchema = void 0;
+exports.adminRoleUpdateSchema = exports.adminRoleCreateSchema = exports.adminUserUpdateSchema = exports.adminUserCreateSchema = exports.stockAdjustmentSchema = exports.stockTransferSchema = exports.stockOutSchema = exports.stockInSchema = exports.scanSchema = exports.itemUpdateSchema = exports.itemSchema = exports.categorySchema = exports.loginSchema = exports.registerSchema = void 0;
 const zod_1 = require("zod");
+const dateStringSchema = zod_1.z
+    .string()
+    .refine((value) => !Number.isNaN(new Date(value).getTime()), 'Invalid date');
 exports.registerSchema = zod_1.z.object({
     name: zod_1.z.string().min(2),
     email: zod_1.z.email(),
     password: zod_1.z.string().min(6),
-    role: zod_1.z.enum(['ADMIN', 'USER']).optional(),
+    role: zod_1.z.enum(['ADMIN', 'MANAGER', 'USER']).optional(),
 });
 exports.loginSchema = zod_1.z.object({
     email: zod_1.z.email(),
@@ -23,11 +26,20 @@ exports.itemSchema = zod_1.z.object({
     tags: zod_1.z.array(zod_1.z.string().min(1)).optional(),
     quantity: zod_1.z.number().int().min(0),
     reservedQty: zod_1.z.number().int().min(0).optional(),
+    expiryDate: dateStringSchema.optional(),
     price: zod_1.z.number().min(0),
     supplier: zod_1.z.string().min(2),
     location: zod_1.z.string().min(2),
     description: zod_1.z.string().optional(),
     lowStockAt: zod_1.z.number().int().min(0).optional(),
+    batches: zod_1.z
+        .array(zod_1.z.object({
+        batchNumber: zod_1.z.string().min(1),
+        lotNumber: zod_1.z.string().optional(),
+        expiryDate: dateStringSchema.optional(),
+        quantity: zod_1.z.number().int().min(0),
+    }))
+        .optional(),
     variants: zod_1.z
         .array(zod_1.z.object({
         name: zod_1.z.string().optional(),
@@ -74,4 +86,24 @@ exports.stockAdjustmentSchema = zod_1.z.object({
     reason: zod_1.z.enum(['DAMAGE', 'LOSS', 'RECOUNT', 'MANUAL']),
     note: zod_1.z.string().optional(),
     reference: zod_1.z.string().optional(),
+});
+exports.adminUserCreateSchema = zod_1.z.object({
+    name: zod_1.z.string().min(2),
+    email: zod_1.z.email(),
+    password: zod_1.z.string().min(6),
+    role: zod_1.z.string().min(1),
+});
+exports.adminUserUpdateSchema = zod_1.z.object({
+    name: zod_1.z.string().min(2).optional(),
+    email: zod_1.z.email().optional(),
+    password: zod_1.z.string().min(6).optional(),
+    role: zod_1.z.string().min(1).optional(),
+});
+exports.adminRoleCreateSchema = zod_1.z.object({
+    name: zod_1.z.string().min(2),
+    permissions: zod_1.z.array(zod_1.z.string().min(1)).min(1),
+});
+exports.adminRoleUpdateSchema = zod_1.z.object({
+    name: zod_1.z.string().min(2).optional(),
+    permissions: zod_1.z.array(zod_1.z.string().min(1)).min(1).optional(),
 });

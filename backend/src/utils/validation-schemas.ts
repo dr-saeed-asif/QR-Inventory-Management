@@ -1,10 +1,14 @@
 import { z } from 'zod'
 
+const dateStringSchema = z
+  .string()
+  .refine((value) => !Number.isNaN(new Date(value).getTime()), 'Invalid date')
+
 export const registerSchema = z.object({
   name: z.string().min(2),
   email: z.email(),
   password: z.string().min(6),
-  role: z.enum(['ADMIN', 'USER']).optional(),
+  role: z.enum(['ADMIN', 'MANAGER', 'USER']).optional(),
 })
 
 export const loginSchema = z.object({
@@ -24,11 +28,22 @@ export const itemSchema = z.object({
   tags: z.array(z.string().min(1)).optional(),
   quantity: z.number().int().min(0),
   reservedQty: z.number().int().min(0).optional(),
+  expiryDate: dateStringSchema.optional(),
   price: z.number().min(0),
   supplier: z.string().min(2),
   location: z.string().min(2),
   description: z.string().optional(),
   lowStockAt: z.number().int().min(0).optional(),
+  batches: z
+    .array(
+      z.object({
+        batchNumber: z.string().min(1),
+        lotNumber: z.string().optional(),
+        expiryDate: dateStringSchema.optional(),
+        quantity: z.number().int().min(0),
+      }),
+    )
+    .optional(),
   variants: z
     .array(
       z.object({
@@ -83,4 +98,28 @@ export const stockAdjustmentSchema = z.object({
   reason: z.enum(['DAMAGE', 'LOSS', 'RECOUNT', 'MANUAL']),
   note: z.string().optional(),
   reference: z.string().optional(),
+})
+
+export const adminUserCreateSchema = z.object({
+  name: z.string().min(2),
+  email: z.email(),
+  password: z.string().min(6),
+  role: z.string().min(1),
+})
+
+export const adminUserUpdateSchema = z.object({
+  name: z.string().min(2).optional(),
+  email: z.email().optional(),
+  password: z.string().min(6).optional(),
+  role: z.string().min(1).optional(),
+})
+
+export const adminRoleCreateSchema = z.object({
+  name: z.string().min(2),
+  permissions: z.array(z.string().min(1)).min(1),
+})
+
+export const adminRoleUpdateSchema = z.object({
+  name: z.string().min(2).optional(),
+  permissions: z.array(z.string().min(1)).min(1).optional(),
 })

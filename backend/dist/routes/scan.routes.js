@@ -6,5 +6,5 @@ const validate_middleware_1 = require("../middleware/validate.middleware");
 const scan_controller_1 = require("../controllers/scan.controller");
 const validation_schemas_1 = require("../utils/validation-schemas");
 const router = (0, express_1.Router)();
-router.post('/', auth_middleware_1.authenticate, (0, validate_middleware_1.validate)(validation_schemas_1.scanSchema), scan_controller_1.scanController.create);
+router.post('/', auth_middleware_1.authenticate, (0, auth_middleware_1.authorizePermission)('scan.create'), (0, validate_middleware_1.validate)(validation_schemas_1.scanSchema), scan_controller_1.scanController.create);
 exports.default = router;

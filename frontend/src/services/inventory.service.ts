@@ -1,5 +1,13 @@
 import { http } from '@/services/http'
-import type { Category, InventoryFilters, InventoryItem, ItemVariant, PaginatedResponse } from '@/types'
+import type {
+  Category,
+  InventoryFilters,
+  InventoryItem,
+  ItemBatch,
+  ItemTimelineEvent,
+  ItemVariant,
+  PaginatedResponse,
+} from '@/types'
 import type { ItemInput } from '@/lib/validators'
 
 interface ApiInventoryItem {
@@ -20,6 +28,8 @@ interface ApiInventoryItem {
   categories?: Category[]
   tags?: Array<{ id: string; name: string } | string>
   variants?: Array<ItemVariant & { price?: number | string }>
+  expiryDate?: string
+  batches?: ItemBatch[]
 }
 
 const mapItem = (item: ApiInventoryItem): InventoryItem => ({
@@ -32,6 +42,7 @@ const mapItem = (item: ApiInventoryItem): InventoryItem => ({
   quantity: item.quantity,
   reservedQty: item.reservedQty ?? 0,
   availableQty: item.availableQty ?? Math.max(0, item.quantity - (item.reservedQty ?? 0)),
+  expiryDate: item.expiryDate ?? undefined,
   price: Number(item.price),
   supplier: item.supplier,
   location: item.location,
@@ -43,6 +54,7 @@ const mapItem = (item: ApiInventoryItem): InventoryItem => ({
     price: typeof variant.price === 'number' || typeof variant.price === 'undefined' ? variant.price : Number(variant.price),
     reservedQty: variant.reservedQty ?? 0,
   })),
+  batches: item.batches,
   createdAt: item.createdAt,
 })
 
@@ -79,6 +91,10 @@ export const inventoryService = {
   detailsFromCode: async (value: string) => {
     const { data } = await http.get<ApiInventoryItem>(`/qr/${encodeURIComponent(value)}`)
     return mapItem(data)
+  },
+  timeline: async (id: string) => {
+    const { data } = await http.get<{ timeline: ItemTimelineEvent[] }>(`/items/${id}/timeline`)
+    return data.timeline
   },
   delete: async (id: string) => {
     await http.delete(`/items/${id}`)
