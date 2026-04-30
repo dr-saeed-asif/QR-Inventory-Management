@@ -304,5 +304,7 @@ The API will be available at: **`http://localhost:4000`**
 - One-time script to insert the initial admin user into the database
 - Credentials are sourced from the `.env` file (`ADMIN_*` variables)
 
+### Image
 
-<img width="1897" height="863" alt="image" src="https://github.com/user-attachments/assets/e0074663-b966-4cd9-a0d8-bf2df3dc2ad0" />
+<img width="1908" height="862" alt="image" src="https://github.com/user-attachments/assets/561b643c-361c-4abe-a863-54f3b003bd78" />
+
