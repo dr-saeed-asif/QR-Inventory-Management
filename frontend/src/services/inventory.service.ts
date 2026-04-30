@@ -32,6 +32,78 @@ interface ApiInventoryItem {
   batches?: ItemBatch[]
 }
 
+export interface MovementTrendPoint {
+  date: string
+  in: number
+  out: number
+  transfer: number
+  adjustment: number
+  total: number
+}
+
+export interface MovementTrendReport {
+  days: number
+  from: string
+  to: string
+  series: MovementTrendPoint[]
+  totals: {
+    in: number
+    out: number
+    transfer: number
+    adjustment: number
+  }
+}
+
+export interface MoversReportEntry {
+  itemId: string
+  name: string
+  sku: string
+  soldQty: number
+  onHandQty: number
+  turnoverRatio: number
+  estimatedRevenue: number
+}
+
+export interface MoversReport {
+  days: number
+  from: string
+  to: string
+  fastMoving: MoversReportEntry[]
+  slowMoving: MoversReportEntry[]
+}
+
+export interface ProfitLossReport {
+  days: number
+  from: string
+  to: string
+  revenue: number
+  expense: number
+  grossProfit: number
+  marginPct: number
+  note: string
+}
+
+export interface ScannedLocationItem {
+  id: string
+  name: string
+  sku: string
+  quantity: number
+  location: string
+  category: { id: string; name: string }
+}
+
+export interface ScannedLocation {
+  id: string
+  name: string
+  shelf: string
+  rack: string
+  bin: string
+  qrValue: string
+  barcodeValue: string
+  warehouse: { id: string; name: string; code: string }
+  items: ScannedLocationItem[]
+}
+
 const mapItem = (item: ApiInventoryItem): InventoryItem => ({
   id: item.id,
   name: item.name,
@@ -92,6 +164,14 @@ export const inventoryService = {
     const { data } = await http.get<ApiInventoryItem>(`/qr/${encodeURIComponent(value)}`)
     return mapItem(data)
   },
+  locationFromCode: async (value: string) => {
+    const { data } = await http.get<ScannedLocation>(`/locations/scan/${encodeURIComponent(value)}`)
+    return data
+  },
+  logScan: async (value: string, note?: string) => {
+    const { data } = await http.post('/scan', { qrCode: value, note })
+    return data
+  },
   timeline: async (id: string) => {
     const { data } = await http.get<{ timeline: ItemTimelineEvent[] }>(`/items/${id}/timeline`)
     return data.timeline
@@ -125,5 +205,23 @@ export const inventoryService = {
       responseType: 'blob',
     })
     return response.data as Blob
+  },
+  movementTrendReport: async (days: number) => {
+    const { data } = await http.get<MovementTrendReport>('/reports/movement-trend', {
+      params: { days },
+    })
+    return data
+  },
+  moversReport: async (days: number) => {
+    const { data } = await http.get<MoversReport>('/reports/movers', {
+      params: { days },
+    })
+    return data
+  },
+  profitLossReport: async (days: number) => {
+    const { data } = await http.get<ProfitLossReport>('/reports/profit-loss', {
+      params: { days },
+    })
+    return data
   },
 }

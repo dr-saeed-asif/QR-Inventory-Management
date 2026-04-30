@@ -14,6 +14,7 @@ export const permissionKeys = [
   'qr.read',
   'reports.read',
   'reports.export',
+  'alerts.read',
   'users.read',
   'users.create',
   'users.update',
@@ -44,6 +45,7 @@ export const rolePermissions: Record<AppRole, Set<Permission>> = {
     'scan.create',
     'qr.read',
     'reports.read',
+    'alerts.read',
     'settings.read',
   ]),
   USER: new Set<Permission>([
@@ -55,6 +57,7 @@ export const rolePermissions: Record<AppRole, Set<Permission>> = {
     'scan.create',
     'qr.read',
     'reports.read',
+    'alerts.read',
     'settings.read',
   ]),
 }

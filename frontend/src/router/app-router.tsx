@@ -13,20 +13,27 @@ import { SettingsPage } from '@/pages/settings-page'
 import { StockOperationsPage } from '@/pages/stock-operations-page'
 import { UsersPage } from '@/pages/User'
 import { RolesPage } from '@/pages/Roles'
+import { AlertsPage } from '@/pages/alerts-page'
 import { hasPermission, type Permission } from '@/lib/permissions'
 
 const isDesktopFileProtocol = typeof window !== 'undefined' && window.location.protocol === 'file:'
 const RouterProvider = isDesktopFileProtocol ? HashRouter : BrowserRouter
+const SAFE_FALLBACK_ROUTE = '/admin/settings'
 
 const RequirePermission = ({ permission, children }: { permission: Permission; children: ReactElement }) => {
   const user = useAuthStore((state) => state.user)
-  if (!hasPermission(user?.role, permission)) return <Navigate to="/" replace />
+  if (!user) return <Navigate to="/login" replace />
+  if (!hasPermission(user.role, permission)) {
+    if (permission === 'settings.read') return <Navigate to="/login" replace />
+    return <Navigate to={SAFE_FALLBACK_ROUTE} replace />
+  }
   return children
 }
 
 const ProtectedRoutes = () => {
   const token = useAuthStore((state) => state.token)
-  if (!token) return <Navigate to="/login" replace />
+  const user = useAuthStore((state) => state.user)
+  if (!token || !user) return <Navigate to="/login" replace />
 
   return (
     <Routes>
@@ -38,6 +45,7 @@ const ProtectedRoutes = () => {
         <Route path="/scanner" element={<Navigate to="/admin/scanner" replace />} />
         <Route path="/categories" element={<Navigate to="/admin/categories" replace />} />
         <Route path="/reports" element={<Navigate to="/admin/reports" replace />} />
+        <Route path="/alerts" element={<Navigate to="/admin/alerts" replace />} />
         <Route path="/users" element={<Navigate to="/admin/users" replace />} />
         <Route path="/roles" element={<Navigate to="/admin/roles" replace />} />
         <Route path="/settings" element={<Navigate to="/admin/settings" replace />} />
@@ -48,6 +56,7 @@ const ProtectedRoutes = () => {
         <Route path="/admin/stock-operations" element={<RequirePermission permission="stock.read"><StockOperationsPage /></RequirePermission>} />
         <Route path="/admin/categories" element={<RequirePermission permission="categories.read"><CategoriesPage /></RequirePermission>} />
         <Route path="/admin/reports" element={<RequirePermission permission="reports.read"><ReportsPage /></RequirePermission>} />
+        <Route path="/admin/alerts" element={<RequirePermission permission="alerts.read"><AlertsPage /></RequirePermission>} />
         <Route path="/admin/users" element={<RequirePermission permission="users.read"><UsersPage /></RequirePermission>} />
         <Route path="/admin/users/create" element={<RequirePermission permission="users.create"><UsersPage /></RequirePermission>} />
         <Route path="/admin/users/:id/edit" element={<RequirePermission permission="users.update"><UsersPage /></RequirePermission>} />

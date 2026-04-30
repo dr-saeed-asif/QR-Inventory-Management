@@ -9,4 +9,7 @@ router.get('/export-csv', (0, auth_middleware_1.authorizePermission)('reports.ex
 router.get('/export-excel', (0, auth_middleware_1.authorizePermission)('reports.export'), report_controller_1.reportController.exportExcel);
 router.get('/low-stock', (0, auth_middleware_1.authorizePermission)('reports.read'), report_controller_1.reportController.lowStock);
 router.get('/recent', (0, auth_middleware_1.authorizePermission)('reports.read'), report_controller_1.reportController.recent);
+router.get('/movement-trend', (0, auth_middleware_1.authorizePermission)('reports.read'), report_controller_1.reportController.movementTrend);
+router.get('/movers', (0, auth_middleware_1.authorizePermission)('reports.read'), report_controller_1.reportController.movers);
+router.get('/profit-loss', (0, auth_middleware_1.authorizePermission)('reports.read'), report_controller_1.reportController.profitLoss);
 exports.default = router;

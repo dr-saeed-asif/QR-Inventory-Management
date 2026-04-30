@@ -3,8 +3,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.stockService = void 0;
 const prisma_1 = require("../config/prisma");
 const api_error_1 = require("../utils/api-error");
+const alert_service_1 = require("./alert.service");
 const activity_service_1 = require("./activity.service");
 const audit_service_1 = require("./audit.service");
+const domain_events_1 = require("../architecture/domain-events");
 exports.stockService = {
     stockIn: async (payload, userId) => {
         const result = await prisma_1.prisma.$transaction(async (tx) => {
@@ -47,6 +49,11 @@ exports.stockService = {
             newData: { quantity: result.updated.quantity },
             userId,
             itemId: payload.itemId,
+        });
+        await alert_service_1.alertService.syncItemAlerts(payload.itemId);
+        domain_events_1.domainEvents.publish({
+            type: 'inventory.stock.mutated',
+            payload: { itemId: payload.itemId, movement: 'IN', quantity: payload.quantity },
         });
         return result;
     },
@@ -97,6 +104,11 @@ exports.stockService = {
             userId,
             itemId: payload.itemId,
         });
+        await alert_service_1.alertService.syncItemAlerts(payload.itemId);
+        domain_events_1.domainEvents.publish({
+            type: 'inventory.stock.mutated',
+            payload: { itemId: payload.itemId, movement: 'OUT', quantity: payload.quantity },
+        });
         return result;
     },
     transfer: async (payload, userId) => {
@@ -131,6 +143,11 @@ exports.stockService = {
             description: `Transferred ${payload.quantity} from ${payload.sourceWarehouse} to ${payload.destinationWarehouse}`,
             userId,
             itemId: payload.itemId,
+        });
+        await alert_service_1.alertService.syncItemAlerts(payload.itemId);
+        domain_events_1.domainEvents.publish({
+            type: 'inventory.stock.mutated',
+            payload: { itemId: payload.itemId, movement: 'TRANSFER', quantity: payload.quantity },
         });
         return result;
     },
@@ -178,6 +195,11 @@ exports.stockService = {
             newData: { quantity: result.updated.quantity, reason: payload.reason },
             userId,
             itemId: payload.itemId,
+        });
+        await alert_service_1.alertService.syncItemAlerts(payload.itemId);
+        domain_events_1.domainEvents.publish({
+            type: 'inventory.stock.mutated',
+            payload: { itemId: payload.itemId, movement: 'ADJUSTMENT', quantity: payload.quantity, reason: payload.reason },
         });
         return result;
     },

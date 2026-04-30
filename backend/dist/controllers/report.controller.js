@@ -41,4 +41,28 @@ exports.reportController = {
             next(error);
         }
     },
+    movementTrend: async (req, res, next) => {
+        try {
+            res.json(await report_service_1.reportService.stockMovementTrend(String(req.query.days ?? '30')));
+        }
+        catch (error) {
+            next(error);
+        }
+    },
+    movers: async (req, res, next) => {
+        try {
+            res.json(await report_service_1.reportService.movers(String(req.query.days ?? '30')));
+        }
+        catch (error) {
+            next(error);
+        }
+    },
+    profitLoss: async (req, res, next) => {
+        try {
+            res.json(await report_service_1.reportService.profitLoss(String(req.query.days ?? '30')));
+        }
+        catch (error) {
+            next(error);
+        }
+    },
 };

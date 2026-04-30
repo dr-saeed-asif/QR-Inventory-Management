@@ -1,0 +1,18 @@
+{
+  "name": "QR Inventory Management",
+  "short_name": "QR Inventory",
+  "description": "Offline-capable QR inventory management app",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "./favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

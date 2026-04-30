@@ -39,4 +39,25 @@ export const reportController = {
       next(error)
     }
   },
+  movementTrend: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(await reportService.stockMovementTrend(String(req.query.days ?? '30')))
+    } catch (error) {
+      next(error)
+    }
+  },
+  movers: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(await reportService.movers(String(req.query.days ?? '30')))
+    } catch (error) {
+      next(error)
+    }
+  },
+  profitLoss: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(await reportService.profitLoss(String(req.query.days ?? '30')))
+    } catch (error) {
+      next(error)
+    }
+  },
 }

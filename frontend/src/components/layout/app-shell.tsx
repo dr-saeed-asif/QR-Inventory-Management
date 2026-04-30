@@ -1,9 +1,10 @@
+import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
 import {
   BarChart3,
   Boxes,
   FolderTree,
+  Bell,
   LayoutDashboard,
   QrCode,
   Settings,
@@ -19,6 +20,8 @@ import { useAuthStore } from '@/store/auth-store'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { hasPermission, type Permission } from '@/lib/permissions'
+import { alertsService } from '@/services/alerts.service'
+import type { AlertSummary } from '@/types'
 
 const links = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard.read' },
@@ -28,6 +31,7 @@ const links = [
   { to: '/admin/scanner', label: 'QR Scanner', icon: QrCode, permission: 'scan.create' },
   { to: '/admin/categories', label: 'Categories', icon: FolderTree, permission: 'categories.read' },
   { to: '/admin/reports', label: 'Reports', icon: BarChart3, permission: 'reports.read' },
+  { to: '/admin/alerts', label: 'Alerts', icon: Bell, permission: 'alerts.read' },
   { to: '/admin/users', label: 'Users', icon: Users, permission: 'users.read' },
   { to: '/admin/roles', label: 'Roles', icon: ShieldCheck, permission: 'roles.read' },
   // { to: '/admin/settings', label: 'Settings', icon: Settings, permission: 'settings.read' },
@@ -36,9 +40,11 @@ const links = [
 export const AppShell = () => {
   const [collapsed, setCollapsed] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [alertSummary, setAlertSummary] = useState<AlertSummary | null>(null)
   const navigate = useNavigate()
   const user = useAuthStore((state) => state.user)
   const logout = useAuthStore((state) => state.logout)
+  const lastUnreadCount = useRef(0)
   const visibleLinks = links.filter((link) => (link.permission ? hasPermission(user?.role, link.permission) : true))
   const initials = (user?.name ?? 'User')
     .split(' ')
@@ -46,6 +52,45 @@ export const AppShell = () => {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? '')
     .join('')
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadSummary = async () => {
+      try {
+        const summary = await alertsService.summary()
+        if (cancelled) return
+        setAlertSummary(summary)
+
+        if (typeof Notification !== 'undefined') {
+          if (Notification.permission === 'default' && summary.unread > 0) {
+            void Notification.requestPermission()
+          }
+          if (Notification.permission === 'granted' && summary.unread > lastUnreadCount.current) {
+            const alerts = await alertsService.list()
+            const firstUnread = alerts.find((alert) => !alert.isRead)
+            if (firstUnread) {
+              new Notification(firstUnread.title, { body: firstUnread.message })
+            }
+          }
+        }
+
+        lastUnreadCount.current = summary.unread
+      } catch {
+        // Keep the shell usable if alerts are temporarily unavailable.
+      }
+    }
+
+    void loadSummary()
+    const interval = window.setInterval(() => {
+      void loadSummary()
+    }, 60000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [])
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
@@ -171,9 +216,17 @@ export const AppShell = () => {
             <p className="text-sm text-slate-500">Welcome</p>
             <p className="font-semibold">{user?.name ?? 'User'}</p>
           </div>
-          {/* <Button variant="outline" onClick={() => navigate('/admin/settings')}>
-            Settings
-          </Button> */}
+          <div className="flex items-center gap-3">
+            <Button variant="outline" className="relative" onClick={() => navigate('/admin/alerts')}>
+              <Bell className="h-4 w-4" />
+              <span>Alerts</span>
+              {alertSummary?.unread ? (
+                <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[11px] font-semibold text-white">
+                  {alertSummary.unread}
+                </span>
+              ) : null}
+            </Button>
+          </div>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
           <Outlet />

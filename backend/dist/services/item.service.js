@@ -5,8 +5,10 @@ const client_1 = require("@prisma/client");
 const prisma_1 = require("../config/prisma");
 const api_error_1 = require("../utils/api-error");
 const qr_1 = require("../utils/qr");
+const alert_service_1 = require("./alert.service");
 const activity_service_1 = require("./activity.service");
 const audit_service_1 = require("./audit.service");
+const domain_events_1 = require("../architecture/domain-events");
 const itemInclude = {
     category: true,
     categories: { include: { category: true } },
@@ -45,15 +47,14 @@ exports.itemService = {
                     price: new client_1.Prisma.Decimal(input.price),
                     supplier: input.supplier,
                     location: input.location,
+                    locationId: input.locationId,
                     description: input.description,
                     lowStockAt: input.lowStockAt,
                     categoryId: input.categoryId,
                     qrValue: (0, qr_1.generateQrValue)(),
                     barcodeValue: (0, qr_1.generateBarcodeValue)(input.sku),
                     categories: {
-                        create: categoryIds.map((categoryId) => ({
-                            categoryId,
-                        })),
+                        create: categoryIds.map((categoryId) => ({ categoryId })),
                     },
                     tags: input.tags?.length
                         ? {
@@ -104,6 +105,11 @@ exports.itemService = {
             userId,
             itemId: item.id,
         });
+        await alert_service_1.alertService.syncItemAlerts(item.id);
+        domain_events_1.domainEvents.publish({
+            type: 'inventory.item.created',
+            payload: { itemId: item.id, sku: item.sku },
+        });
         return mapItemResponse(item);
     },
     createManyFromImport: async (rows, userId) => {
@@ -118,7 +124,7 @@ exports.itemService = {
             });
             const existing = await prisma_1.prisma.item.findUnique({ where: { sku: row.sku } });
             if (existing) {
-                await prisma_1.prisma.item.update({
+                const updatedItem = await prisma_1.prisma.item.update({
                     where: { sku: row.sku },
                     data: {
                         name: row.name,
@@ -132,10 +138,11 @@ exports.itemService = {
                         categoryId: category.id,
                     },
                 });
+                await alert_service_1.alertService.syncItemAlerts(updatedItem.id);
                 updated += 1;
             }
             else {
-                await prisma_1.prisma.item.create({
+                const createdItem = await prisma_1.prisma.item.create({
                     data: {
                         name: row.name,
                         sku: row.sku,
@@ -166,6 +173,7 @@ exports.itemService = {
                             : undefined,
                     },
                 });
+                await alert_service_1.alertService.syncItemAlerts(createdItem.id);
                 created += 1;
             }
         }
@@ -382,6 +390,7 @@ exports.itemService = {
                     price: typeof input.price === 'number' ? new client_1.Prisma.Decimal(input.price) : undefined,
                     supplier: input.supplier,
                     location: input.location,
+                    locationId: input.locationId,
                     description: input.description,
                     lowStockAt: input.lowStockAt,
                     categories: categoryIds
@@ -440,6 +449,11 @@ exports.itemService = {
             userId,
             itemId: id,
         });
+        await alert_service_1.alertService.syncItemAlerts(id);
+        domain_events_1.domainEvents.publish({
+            type: 'inventory.item.updated',
+            payload: { itemId: id, sku: updated.sku },
+        });
         return mapItemResponse(updated);
     },
     delete: async (id, userId) => {
@@ -447,6 +461,7 @@ exports.itemService = {
         if (!existing)
             throw new api_error_1.ApiError(404, 'Item not found');
         await prisma_1.prisma.item.delete({ where: { id } });
+        await alert_service_1.alertService.resolveItemAlerts(id);
         await activity_service_1.activityService.create({
             action: 'DELETE',
             entityType: 'ITEM',

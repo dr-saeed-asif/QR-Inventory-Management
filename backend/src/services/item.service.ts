@@ -2,8 +2,10 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '../config/prisma'
 import { ApiError } from '../utils/api-error'
 import { generateBarcodeValue, generateQrValue } from '../utils/qr'
+import { alertService } from './alert.service'
 import { activityService } from './activity.service'
 import { auditService } from './audit.service'
+import { domainEvents } from '../architecture/domain-events'
 
 interface ItemVariantInput {
   name?: string
@@ -20,6 +22,7 @@ interface ItemInput {
   name: string
   sku: string
   categoryId: string
+  locationId?: string
   categoryIds?: string[]
   tags?: string[]
   quantity: number
@@ -83,15 +86,14 @@ export const itemService = {
           price: new Prisma.Decimal(input.price),
           supplier: input.supplier,
           location: input.location,
+          locationId: input.locationId,
           description: input.description,
           lowStockAt: input.lowStockAt,
           categoryId: input.categoryId,
           qrValue: generateQrValue(),
           barcodeValue: generateBarcodeValue(input.sku),
           categories: {
-            create: categoryIds.map((categoryId) => ({
-              categoryId,
-            })),
+            create: categoryIds.map((categoryId) => ({ categoryId })),
           },
           tags: input.tags?.length
             ? {
@@ -145,6 +147,11 @@ export const itemService = {
       userId,
       itemId: item.id,
     })
+    await alertService.syncItemAlerts(item.id)
+    domainEvents.publish({
+      type: 'inventory.item.created',
+      payload: { itemId: item.id, sku: item.sku },
+    })
     return mapItemResponse(item)
   },
 
@@ -174,7 +181,7 @@ export const itemService = {
 
       const existing = await prisma.item.findUnique({ where: { sku: row.sku } })
       if (existing) {
-        await prisma.item.update({
+        const updatedItem = await prisma.item.update({
           where: { sku: row.sku },
           data: {
             name: row.name,
@@ -188,9 +195,10 @@ export const itemService = {
             categoryId: category.id,
           },
         })
+        await alertService.syncItemAlerts(updatedItem.id)
         updated += 1
       } else {
-        await prisma.item.create({
+        const createdItem = await prisma.item.create({
           data: {
             name: row.name,
             sku: row.sku,
@@ -221,6 +229,7 @@ export const itemService = {
               : undefined,
           },
         })
+        await alertService.syncItemAlerts(createdItem.id)
         created += 1
       }
     }
@@ -455,6 +464,7 @@ export const itemService = {
           price: typeof input.price === 'number' ? new Prisma.Decimal(input.price) : undefined,
           supplier: input.supplier,
           location: input.location,
+          locationId: input.locationId,
           description: input.description,
           lowStockAt: input.lowStockAt,
           categories: categoryIds
@@ -515,6 +525,11 @@ export const itemService = {
       userId,
       itemId: id,
     })
+    await alertService.syncItemAlerts(id)
+    domainEvents.publish({
+      type: 'inventory.item.updated',
+      payload: { itemId: id, sku: updated.sku },
+    })
     return mapItemResponse(updated)
   },
 
@@ -522,6 +537,7 @@ export const itemService = {
     const existing = await prisma.item.findUnique({ where: { id } })
     if (!existing) throw new ApiError(404, 'Item not found')
     await prisma.item.delete({ where: { id } })
+    await alertService.resolveItemAlerts(id)
     await activityService.create({
       action: 'DELETE',
       entityType: 'ITEM',

@@ -17,6 +17,7 @@ exports.permissionKeys = [
     'qr.read',
     'reports.read',
     'reports.export',
+    'alerts.read',
     'users.read',
     'users.create',
     'users.update',
@@ -43,6 +44,7 @@ exports.rolePermissions = {
         'scan.create',
         'qr.read',
         'reports.read',
+        'alerts.read',
         'settings.read',
     ]),
     USER: new Set([
@@ -54,6 +56,7 @@ exports.rolePermissions = {
         'scan.create',
         'qr.read',
         'reports.read',
+        'alerts.read',
         'settings.read',
     ]),
 };

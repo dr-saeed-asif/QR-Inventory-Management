@@ -18,6 +18,18 @@ enum UserRole {
   USER
 }
 
+enum AlertType {
+  LOW_STOCK
+  EXPIRY
+  OVERSTOCK
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
 enum StockMovementType {
   IN
   OUT
@@ -72,7 +84,9 @@ model Item {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   categoryId  String
+  locationId  String?
   category    Category      @relation(fields: [categoryId], references: [id])
+  storageLocation StorageLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
   scans       ScanHistory[]
   activities  ActivityLog[]
   audits      AuditTrail[]
@@ -81,6 +95,34 @@ model Item {
   variants    ItemVariant[]
   stockMovements StockMovement[]
   batches     ItemBatch[]
+  alerts      Alert[]
+}
+
+model Warehouse {
+  id          String            @id @default(uuid())
+  name        String
+  code        String            @unique
+  address     String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  locations   StorageLocation[]
+}
+
+model StorageLocation {
+  id          String      @id @default(uuid())
+  warehouseId String
+  name        String
+  shelf       String
+  rack        String
+  bin         String
+  qrValue     String      @unique
+  barcodeValue String     @unique
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  warehouse   Warehouse   @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  items       Item[]
+
+  @@unique([warehouseId, shelf, rack, bin])
 }
 
 model ItemBatch {
@@ -192,4 +234,27 @@ model AuditTrail {
   itemId     String?
   user       User?    @relation(fields: [userId], references: [id])
   item       Item?    @relation(fields: [itemId], references: [id])
+}
+
+model Alert {
+  id          String         @id @default(uuid())
+  dedupeKey   String         @unique
+  type        AlertType
+  severity    AlertSeverity
+  title       String
+  message     String         @db.Text
+  itemId      String?
+  payload     Json?
+  isRead      Boolean        @default(false)
+  readAt      DateTime?
+  resolvedAt  DateTime?
+  inAppSentAt DateTime?
+  emailSentAt DateTime?
+  desktopSentAt DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  item        Item?          @relation(fields: [itemId], references: [id], onDelete: SetNull)
+
+  @@index([type, severity, isRead])
+  @@index([itemId])
 }

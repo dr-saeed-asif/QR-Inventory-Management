@@ -44,6 +44,35 @@ export interface ItemTimelineEvent {
   meta?: Record<string, unknown> | null
 }
 
+export type AlertType = 'LOW_STOCK' | 'EXPIRY' | 'OVERSTOCK'
+export type AlertSeverity = 'INFO' | 'WARNING' | 'CRITICAL'
+
+export interface Alert {
+  id: string
+  dedupeKey: string
+  type: AlertType
+  severity: AlertSeverity
+  title: string
+  message: string
+  itemId?: string | null
+  payload?: Record<string, unknown> | null
+  isRead: boolean
+  readAt?: string | null
+  resolvedAt?: string | null
+  createdAt: string
+}
+
+export interface AlertSummary {
+  total: number
+  unread: number
+  critical: number
+  warning: number
+  info: number
+  lowStock: number
+  expiry: number
+  overstock: number
+}
+
 export interface InventoryItem {
   id: string
   name: string

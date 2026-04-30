@@ -4,9 +4,14 @@ import itemRoutes from './item.routes'
 import categoryRoutes from './category.routes'
 import qrRoutes from './qr.routes'
 import scanRoutes from './scan.routes'
+import warehouseRoutes from './warehouse.routes'
+import locationRoutes from './location.routes'
 import reportRoutes from './report.routes'
+import alertRoutes from './alert.routes'
 import stockRoutes from './stock.routes'
 import adminRoutes from './admin.routes'
+import graphqlRoutes from './graphql.routes'
+import architectureRoutes from './architecture.routes'
 
 const router = Router()
 
@@ -15,8 +20,13 @@ router.use('/items', itemRoutes)
 router.use('/categories', categoryRoutes)
 router.use('/qr', qrRoutes)
 router.use('/scan', scanRoutes)
+router.use('/warehouses', warehouseRoutes)
+router.use('/locations', locationRoutes)
 router.use('/reports', reportRoutes)
+router.use('/alerts', alertRoutes)
 router.use('/stock', stockRoutes)
 router.use('/admin', adminRoutes)
+router.use('/graphql', graphqlRoutes)
+router.use('/architecture', architectureRoutes)
 
 export default router

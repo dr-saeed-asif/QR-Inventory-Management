@@ -20,10 +20,25 @@ export const categorySchema = z.object({
   name: z.string().min(2),
 })
 
+export const warehouseSchema = z.object({
+  name: z.string().min(2),
+  code: z.string().min(2),
+  address: z.string().optional(),
+})
+
+export const locationSchema = z.object({
+  warehouseId: z.uuid(),
+  name: z.string().min(2).optional(),
+  shelf: z.string().min(1),
+  rack: z.string().min(1),
+  bin: z.string().min(1),
+})
+
 export const itemSchema = z.object({
   name: z.string().min(2),
   sku: z.string().min(2),
   categoryId: z.uuid(),
+  locationId: z.uuid().optional(),
   categoryIds: z.array(z.uuid()).optional(),
   tags: z.array(z.string().min(1)).optional(),
   quantity: z.number().int().min(0),
@@ -63,7 +78,7 @@ export const itemSchema = z.object({
 export const itemUpdateSchema = itemSchema.partial()
 
 export const scanSchema = z.object({
-  qrCode: z.string().min(8),
+  qrCode: z.string().min(1),
   note: z.string().optional(),
 })
 

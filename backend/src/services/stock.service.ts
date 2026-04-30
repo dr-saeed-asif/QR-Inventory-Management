@@ -1,7 +1,9 @@
 import { prisma } from '../config/prisma'
 import { ApiError } from '../utils/api-error'
+import { alertService } from './alert.service'
 import { activityService } from './activity.service'
 import { auditService } from './audit.service'
+import { domainEvents } from '../architecture/domain-events'
 
 interface BasePayload {
   itemId: string
@@ -59,6 +61,11 @@ export const stockService = {
       userId,
       itemId: payload.itemId,
     })
+    await alertService.syncItemAlerts(payload.itemId)
+    domainEvents.publish({
+      type: 'inventory.stock.mutated',
+      payload: { itemId: payload.itemId, movement: 'IN', quantity: payload.quantity },
+    })
     return result
   },
 
@@ -112,6 +119,11 @@ export const stockService = {
       userId,
       itemId: payload.itemId,
     })
+    await alertService.syncItemAlerts(payload.itemId)
+    domainEvents.publish({
+      type: 'inventory.stock.mutated',
+      payload: { itemId: payload.itemId, movement: 'OUT', quantity: payload.quantity },
+    })
     return result
   },
 
@@ -153,6 +165,11 @@ export const stockService = {
       description: `Transferred ${payload.quantity} from ${payload.sourceWarehouse} to ${payload.destinationWarehouse}`,
       userId,
       itemId: payload.itemId,
+    })
+    await alertService.syncItemAlerts(payload.itemId)
+    domainEvents.publish({
+      type: 'inventory.stock.mutated',
+      payload: { itemId: payload.itemId, movement: 'TRANSFER', quantity: payload.quantity },
     })
     return result
   },
@@ -207,6 +224,11 @@ export const stockService = {
       newData: { quantity: result.updated.quantity, reason: payload.reason },
       userId,
       itemId: payload.itemId,
+    })
+    await alertService.syncItemAlerts(payload.itemId)
+    domainEvents.publish({
+      type: 'inventory.stock.mutated',
+      payload: { itemId: payload.itemId, movement: 'ADJUSTMENT', quantity: payload.quantity, reason: payload.reason },
     })
     return result
   },

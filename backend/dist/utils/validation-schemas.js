@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.adminRoleUpdateSchema = exports.adminRoleCreateSchema = exports.adminUserUpdateSchema = exports.adminUserCreateSchema = exports.stockAdjustmentSchema = exports.stockTransferSchema = exports.stockOutSchema = exports.stockInSchema = exports.scanSchema = exports.itemUpdateSchema = exports.itemSchema = exports.categorySchema = exports.loginSchema = exports.registerSchema = void 0;
+exports.adminRoleUpdateSchema = exports.adminRoleCreateSchema = exports.adminUserUpdateSchema = exports.adminUserCreateSchema = exports.stockAdjustmentSchema = exports.stockTransferSchema = exports.stockOutSchema = exports.stockInSchema = exports.scanSchema = exports.itemUpdateSchema = exports.itemSchema = exports.locationSchema = exports.warehouseSchema = exports.categorySchema = exports.loginSchema = exports.registerSchema = void 0;
 const zod_1 = require("zod");
 const dateStringSchema = zod_1.z
     .string()
@@ -18,10 +18,23 @@ exports.loginSchema = zod_1.z.object({
 exports.categorySchema = zod_1.z.object({
     name: zod_1.z.string().min(2),
 });
+exports.warehouseSchema = zod_1.z.object({
+    name: zod_1.z.string().min(2),
+    code: zod_1.z.string().min(2),
+    address: zod_1.z.string().optional(),
+});
+exports.locationSchema = zod_1.z.object({
+    warehouseId: zod_1.z.uuid(),
+    name: zod_1.z.string().min(2).optional(),
+    shelf: zod_1.z.string().min(1),
+    rack: zod_1.z.string().min(1),
+    bin: zod_1.z.string().min(1),
+});
 exports.itemSchema = zod_1.z.object({
     name: zod_1.z.string().min(2),
     sku: zod_1.z.string().min(2),
     categoryId: zod_1.z.uuid(),
+    locationId: zod_1.z.uuid().optional(),
     categoryIds: zod_1.z.array(zod_1.z.uuid()).optional(),
     tags: zod_1.z.array(zod_1.z.string().min(1)).optional(),
     quantity: zod_1.z.number().int().min(0),
@@ -55,7 +68,7 @@ exports.itemSchema = zod_1.z.object({
 });
 exports.itemUpdateSchema = exports.itemSchema.partial();
 exports.scanSchema = zod_1.z.object({
-    qrCode: zod_1.z.string().min(8),
+    qrCode: zod_1.z.string().min(1),
     note: zod_1.z.string().optional(),
 });
 exports.stockInSchema = zod_1.z.object({

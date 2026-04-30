@@ -4,6 +4,7 @@ import helmet from 'helmet'
 import morgan from 'morgan'
 import routes from './routes'
 import { errorHandler, notFoundHandler } from './middleware/error.middleware'
+import './architecture/bootstrap'
 
 export const app = express()
 
