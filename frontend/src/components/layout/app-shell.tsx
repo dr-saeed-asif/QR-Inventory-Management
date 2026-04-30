@@ -12,6 +12,8 @@ import {
   Warehouse,
   ChevronLeft,
   ChevronRight,
+  ChevronsUpDown,
+  LogOut,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/auth-store'
 import { cn } from '@/lib/utils'
@@ -19,43 +21,57 @@ import { Button } from '@/components/ui/button'
 import { hasPermission, type Permission } from '@/lib/permissions'
 
 const links = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, permission: null },
+  { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard.read' },
   // { to: '/add-item', label: 'Add Item' },
-  { to: '/inventory', label: 'Inventory Lists', icon: Boxes, permission: 'Read' },
-  { to: '/stock-operations', label: 'Stock Operations', icon: Warehouse, permission: 'Read' },
-  { to: '/scanner', label: 'QR Scanner', icon: QrCode, permission: 'Create' },
-  { to: '/categories', label: 'Categories', icon: FolderTree, permission: 'Read' },
-  { to: '/reports', label: 'Reports', icon: BarChart3, permission: 'Read' },
-  { to: '/users', label: 'Users', icon: Users, permission: null },
-  { to: '/roles', label: 'Roles', icon: ShieldCheck, permission: null },
-  { to: '/settings', label: 'Settings', icon: Settings, permission: null },
+  { to: '/admin/inventory', label: 'Inventory Lists', icon: Boxes, permission: 'items.read' },
+  { to: '/admin/stock-operations', label: 'Stock Operations', icon: Warehouse, permission: 'stock.read' },
+  { to: '/admin/scanner', label: 'QR Scanner', icon: QrCode, permission: 'scan.create' },
+  { to: '/admin/categories', label: 'Categories', icon: FolderTree, permission: 'categories.read' },
+  { to: '/admin/reports', label: 'Reports', icon: BarChart3, permission: 'reports.read' },
+  { to: '/admin/users', label: 'Users', icon: Users, permission: 'users.read' },
+  { to: '/admin/roles', label: 'Roles', icon: ShieldCheck, permission: 'roles.read' },
+  // { to: '/admin/settings', label: 'Settings', icon: Settings, permission: 'settings.read' },
 ] as const satisfies Array<{ to: string; label: string; icon: (typeof LayoutDashboard); permission: Permission | null }>
 
 export const AppShell = () => {
   const [collapsed, setCollapsed] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
   const navigate = useNavigate()
   const user = useAuthStore((state) => state.user)
   const logout = useAuthStore((state) => state.logout)
-  const visibleLinks = links.filter((link) => {
-    if (link.to === '/users' || link.to === '/roles') return user?.role === 'ADMIN'
-    return link.permission ? hasPermission(user?.role, link.permission) : true
-  })
+  const visibleLinks = links.filter((link) => (link.permission ? hasPermission(user?.role, link.permission) : true))
+  const initials = (user?.name ?? 'User')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('')
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
       <aside
         className={cn(
-          'h-screen overflow-y-auto border-r border-slate-200 bg-white/95 p-3 shadow-sm transition-all',
+          'flex h-screen flex-col border-r border-slate-200 bg-white/95 p-3 shadow-sm transition-all',
           collapsed ? 'w-20' : 'w-72',
         )}
       >
         <div className="sticky top-0 z-10 mb-4 flex items-center justify-between rounded-xl bg-white/95 py-1 backdrop-blur">
           {!collapsed ? <span className="px-1 text-lg font-semibold tracking-tight">Inventory Management</span> : null}
-          <Button variant="outline" className="h-11 w-11 p-0" onClick={() => setCollapsed((s) => !s)}>
+          <Button
+            variant="outline"
+            className="h-11 w-11 p-0"
+            onClick={() =>
+              setCollapsed((s) => {
+                const next = !s
+                if (next) setUserMenuOpen(false)
+                return next
+              })
+            }
+          >
             {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </Button>
         </div>
-        <nav className="space-y-2 pb-4">
+        <nav className="flex-1 space-y-2 overflow-y-auto pb-4">
           {visibleLinks.map((link) => (
             <NavLink
               key={link.to}
@@ -81,6 +97,73 @@ export const AppShell = () => {
             </NavLink>
           ))}
         </nav>
+        <div className="mt-auto border-t border-slate-200 pt-3">
+          <div className={cn('rounded-xl border border-slate-200 bg-slate-50', collapsed ? 'p-2' : 'p-3')}>
+            {!collapsed && !userMenuOpen ? (
+              <button
+                type="button"
+                className="flex w-full items-center justify-between gap-3 rounded-lg px-1 py-1 text-left hover:bg-slate-100"
+                onClick={() => setUserMenuOpen((current) => !current)}
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-200 text-sm font-semibold text-slate-700">
+                    {initials || 'U'}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-base font-semibold text-slate-900">{user?.name ?? 'User'}</p>
+                  </div>
+                </div>
+                <ChevronsUpDown className="h-4 w-4 shrink-0 text-slate-500" />
+              </button>
+            ) : null}
+            {!collapsed && userMenuOpen ? (
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  className="flex w-full items-start justify-between rounded-md px-2 pb-2 text-left hover:bg-slate-100"
+                  onClick={() => setUserMenuOpen(false)}
+                >
+                  <div>
+                    <p className="truncate text-base font-semibold text-slate-900">{user?.name ?? 'User'}</p>
+                    <p className="truncate text-sm text-slate-600">{user?.email ?? 'No email'}</p>
+                  </div>
+                  <ChevronsUpDown className="mt-1 h-4 w-4 shrink-0 text-slate-500" />
+                </button>
+                <div className="border-t border-slate-200" />
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-base text-slate-700 hover:bg-slate-200/60"
+                  onClick={() => navigate('/admin/settings')}
+                >
+                  <Settings className="h-4 w-4" />
+                  <span>Settings</span>
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-base text-slate-700 hover:bg-slate-200/60"
+                  onClick={() => {
+                    logout()
+                    navigate('/login')
+                  }}
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span>Log Out</span>
+                </button>
+              </div>
+            ) : collapsed ? (
+              <div className="mt-2 flex justify-center">
+                <Button
+                  variant="outline"
+                  className="h-9 w-9 p-0"
+                  title="Profile Menu"
+                  onClick={() => setUserMenuOpen((current) => !current)}
+                >
+                  <ChevronsUpDown className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        </div>
       </aside>
       <main className="flex h-screen flex-1 flex-col overflow-hidden">
         <header className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-white/90 px-4 py-4 backdrop-blur md:px-6">
@@ -88,15 +171,9 @@ export const AppShell = () => {
             <p className="text-sm text-slate-500">Welcome</p>
             <p className="font-semibold">{user?.name ?? 'User'}</p>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => {
-              logout()
-              navigate('/login')
-            }}
-          >
-            Logout
-          </Button>
+          {/* <Button variant="outline" onClick={() => navigate('/admin/settings')}>
+            Settings
+          </Button> */}
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
           <Outlet />

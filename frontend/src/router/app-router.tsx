@@ -5,14 +5,14 @@ import { LoginPage } from '@/pages/login-page'
 import { AppShell } from '@/components/layout/app-shell'
 import { DashboardPage } from '@/pages/dashboard-page'
 import { AddItemPage } from '@/pages/add-item-page'
-import { InventoryListPage } from '@/pages/inventory-list-page'
+import { InventoryListPage } from '@/pages/Inventory'
 import { ScannerPage } from '@/pages/scanner-page'
-import { CategoriesPage } from '@/pages/categories-page'
+import { CategoriesPage } from '@/pages/Category'
 import { ReportsPage } from '@/pages/reports-page'
 import { SettingsPage } from '@/pages/settings-page'
 import { StockOperationsPage } from '@/pages/stock-operations-page'
-import { UsersPage } from '@/pages/users-page'
-import { RolesPage } from '@/pages/roles-page'
+import { UsersPage } from '@/pages/User'
+import { RolesPage } from '@/pages/Roles'
 import { hasPermission, type Permission } from '@/lib/permissions'
 
 const isDesktopFileProtocol = typeof window !== 'undefined' && window.location.protocol === 'file:'
@@ -24,12 +24,6 @@ const RequirePermission = ({ permission, children }: { permission: Permission; c
   return children
 }
 
-const RequireAdmin = ({ children }: { children: ReactElement }) => {
-  const user = useAuthStore((state) => state.user)
-  if (user?.role !== 'ADMIN') return <Navigate to="/" replace />
-  return children
-}
-
 const ProtectedRoutes = () => {
   const token = useAuthStore((state) => state.token)
   if (!token) return <Navigate to="/login" replace />
@@ -37,16 +31,30 @@ const ProtectedRoutes = () => {
   return (
     <Routes>
       <Route element={<AppShell />}>
-        <Route path="/" element={<DashboardPage />} />
-        <Route path="/add-item" element={<RequirePermission permission="Create"><AddItemPage /></RequirePermission>} />
-        <Route path="/inventory" element={<RequirePermission permission="Read"><InventoryListPage /></RequirePermission>} />
-        <Route path="/scanner" element={<RequirePermission permission="Create"><ScannerPage /></RequirePermission>} />
-        <Route path="/stock-operations" element={<RequirePermission permission="Read"><StockOperationsPage /></RequirePermission>} />
-        <Route path="/categories" element={<RequirePermission permission="Read"><CategoriesPage /></RequirePermission>} />
-        <Route path="/reports" element={<RequirePermission permission="Read"><ReportsPage /></RequirePermission>} />
-        <Route path="/users" element={<RequireAdmin><UsersPage /></RequireAdmin>} />
-        <Route path="/roles" element={<RequireAdmin><RolesPage /></RequireAdmin>} />
-        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
+        <Route path="/dashboard" element={<Navigate to="/admin/dashboard" replace />} />
+        <Route path="/inventory" element={<Navigate to="/admin/inventory" replace />} />
+        <Route path="/stock-operations" element={<Navigate to="/admin/stock-operations" replace />} />
+        <Route path="/scanner" element={<Navigate to="/admin/scanner" replace />} />
+        <Route path="/categories" element={<Navigate to="/admin/categories" replace />} />
+        <Route path="/reports" element={<Navigate to="/admin/reports" replace />} />
+        <Route path="/users" element={<Navigate to="/admin/users" replace />} />
+        <Route path="/roles" element={<Navigate to="/admin/roles" replace />} />
+        <Route path="/settings" element={<Navigate to="/admin/settings" replace />} />
+        <Route path="/admin/dashboard" element={<RequirePermission permission="dashboard.read"><DashboardPage /></RequirePermission>} />
+        <Route path="/admin/add-item" element={<RequirePermission permission="items.create"><AddItemPage /></RequirePermission>} />
+        <Route path="/admin/inventory" element={<RequirePermission permission="items.read"><InventoryListPage /></RequirePermission>} />
+        <Route path="/admin/scanner" element={<RequirePermission permission="scan.create"><ScannerPage /></RequirePermission>} />
+        <Route path="/admin/stock-operations" element={<RequirePermission permission="stock.read"><StockOperationsPage /></RequirePermission>} />
+        <Route path="/admin/categories" element={<RequirePermission permission="categories.read"><CategoriesPage /></RequirePermission>} />
+        <Route path="/admin/reports" element={<RequirePermission permission="reports.read"><ReportsPage /></RequirePermission>} />
+        <Route path="/admin/users" element={<RequirePermission permission="users.read"><UsersPage /></RequirePermission>} />
+        <Route path="/admin/users/create" element={<RequirePermission permission="users.create"><UsersPage /></RequirePermission>} />
+        <Route path="/admin/users/:id/edit" element={<RequirePermission permission="users.update"><UsersPage /></RequirePermission>} />
+        <Route path="/admin/roles" element={<RequirePermission permission="roles.read"><RolesPage /></RequirePermission>} />
+        <Route path="/admin/roles/create" element={<RequirePermission permission="roles.create"><RolesPage /></RequirePermission>} />
+        <Route path="/admin/roles/:id/edit" element={<RequirePermission permission="roles.update"><RolesPage /></RequirePermission>} />
+        <Route path="/admin/settings" element={<RequirePermission permission="settings.read"><SettingsPage /></RequirePermission>} />
       </Route>
     </Routes>
   )

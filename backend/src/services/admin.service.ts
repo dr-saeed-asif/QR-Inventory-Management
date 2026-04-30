@@ -93,6 +93,22 @@ const toRoleKey = (name: string) =>
     .replace(/[^A-Z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '')
 
+const isCoreRoleKey = (roleKey: string): roleKey is UserRole => coreRoles.includes(roleKey as UserRole)
+
+const countUsersByRoleKey = async (roleKey: string) => {
+  if (isCoreRoleKey(roleKey)) {
+    return prisma.user.count({ where: { role: roleKey } })
+  }
+
+  const rows = await prisma.$queryRaw<Array<{ count: bigint | number }>>`
+    SELECT COUNT(*) as count
+    FROM admin_user_roles
+    WHERE roleKey = ${roleKey}
+  `
+  const rawCount = rows[0]?.count ?? 0
+  return Number(rawCount)
+}
+
 const ensureRoleTable = async () => {
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS admin_roles (
@@ -308,12 +324,16 @@ export const adminService = {
       ORDER BY createdAt DESC
     `
 
-    const roleStats = await prisma.user.groupBy({
-      by: ['role'],
-      _count: { _all: true },
-    })
-
-    const userCountByRole = new Map(roleStats.map((entry) => [entry.role, entry._count._all]))
+    const roleStats = await prisma.user.groupBy({ by: ['role'], _count: { _all: true } })
+    const customRoleStats = await prisma.$queryRaw<Array<{ roleKey: string; count: bigint | number }>>`
+      SELECT roleKey, COUNT(*) as count
+      FROM admin_user_roles
+      GROUP BY roleKey
+    `
+    const userCountByRole = new Map<string, number>(roleStats.map((entry) => [entry.role, entry._count._all]))
+    for (const row of customRoleStats) {
+      userCountByRole.set(row.roleKey, Number(row.count))
+    }
 
     return rows.map((row) => ({
       ...summarizePermissionDisplay(parsePermissions(row.permissions)),
@@ -322,7 +342,7 @@ export const adminService = {
       name: row.name,
       role: row.roleKey,
       permissions: parsePermissions(row.permissions),
-      userCount: userCountByRole.get(row.roleKey as UserRole) ?? 0,
+      userCount: userCountByRole.get(row.roleKey) ?? 0,
       isSystem: Boolean(row.isSystem),
       createdAt: formatDate(row.createdAt),
       updatedAt: formatDate(row.updatedAt),
@@ -424,7 +444,7 @@ export const adminService = {
     `
 
     const updated = updatedRows[0]
-    const assignedUsers = await prisma.user.count({ where: { role: updated.roleKey as UserRole } })
+    const assignedUsers = await countUsersByRoleKey(updated.roleKey)
 
     return {
       ...summarizePermissionDisplay(parsePermissions(updated.permissions)),
@@ -454,7 +474,7 @@ export const adminService = {
     if (!role) throw new ApiError(404, 'Role not found')
     if (role.isSystem) throw new ApiError(400, 'System roles cannot be deleted')
 
-    const assignedUsers = await prisma.user.count({ where: { role: role.roleKey as UserRole } })
+    const assignedUsers = await countUsersByRoleKey(role.roleKey)
     if (assignedUsers > 0) {
       throw new ApiError(400, 'This role cannot be deleted because it is assigned to users')
     }

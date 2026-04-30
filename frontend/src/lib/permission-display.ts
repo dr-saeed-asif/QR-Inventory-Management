@@ -1,10 +1,14 @@
 const moduleLabelMap: Record<string, string> = {
+  dashboard: 'Dashboard',
   items: 'Inventory',
   categories: 'Category',
   qr: 'QR Code',
   reports: 'Report',
   scan: 'Scan',
   stock: 'Stock',
+  users: 'Users',
+  roles: 'Roles',
+  settings: 'Settings',
 }
 
 export const getPermissionActionLabel = (permission: string): string | null => {
