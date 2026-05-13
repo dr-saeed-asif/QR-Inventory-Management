@@ -30,6 +30,10 @@ export const ItemForm = ({ form, categories, itemOptions, errors, isSubmitting, 
       ),
     [],
   )
+  const urduCategoryLookup = useMemo(
+    () => new Map(groceryCatalogData.categories.map((category) => [category.nameEn, category.nameUr] as const)),
+    [],
+  )
   const filteredOptions = useMemo(() => {
     const query = form.name.trim().toLowerCase()
     if (!query) return itemOptions.slice(0, 80)
@@ -115,7 +119,11 @@ export const ItemForm = ({ form, categories, itemOptions, errors, isSubmitting, 
         <select className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm" value={form.categoryId} onChange={(event) => onFormChange('categoryId', event.target.value)}>
           <option value="">Select category</option>
           {categories.map((category) => (
-            <option key={category.id} value={category.id}>{category.name}</option>
+            <option key={category.id} value={category.id}>
+              {urduCategoryLookup.has(category.name)
+                ? `${category.name} (${urduCategoryLookup.get(category.name)})`
+                : category.name}
+            </option>
           ))}
         </select>
         <p className="text-xs text-red-600">{errors.categoryId}</p>

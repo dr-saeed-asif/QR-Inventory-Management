@@ -1,4 +1,5 @@
 import { http } from '@/services/http'
+import axios from 'axios'
 import type {
   Category,
   InventoryFilters,
@@ -157,12 +158,50 @@ export const inventoryService = {
     } as PaginatedResponse<InventoryItem>
   },
   catalogNames: async () => {
-    const { data } = await http.get<{ names: string[] }>('/items/catalog')
-    return data.names
+    try {
+      const { data } = await http.get<{ names: string[] }>('/items/catalog')
+      return data.names
+    } catch (error) {
+      // Backward compatibility: if backend doesn't have /items/catalog yet, derive names from /items list.
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        const uniqueNames = new Set<string>()
+        const pageSize = 100
+        let page = 1
+        let total = 0
+
+        do {
+          const { data } = await http.get<{ data: ApiInventoryItem[]; total: number; page: number; limit: number }>('/items', {
+            params: {
+              page,
+              limit: pageSize,
+              sortBy: 'name',
+              sortOrder: 'asc',
+            },
+          })
+          data.data.forEach((item) => {
+            const normalized = item.name.trim()
+            if (normalized) uniqueNames.add(normalized)
+          })
+          total = data.total
+          page += 1
+        } while ((page - 1) * pageSize < total)
+
+        return Array.from(uniqueNames).sort((a, b) => a.localeCompare(b))
+      }
+      throw error
+    }
   },
   syncCatalog: async () => {
-    const { data } = await http.post<{ created: number; existing: number; totalCatalogItems: number }>('/items/catalog/sync')
-    return data
+    try {
+      const { data } = await http.post<{ created: number; existing: number; totalCatalogItems: number }>('/items/catalog/sync')
+      return data
+    } catch (error) {
+      // Backward compatibility: ignore when backend doesn't expose sync route yet.
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return { created: 0, existing: 0, totalCatalogItems: 0 }
+      }
+      throw error
+    }
   },
   create: async (payload: ItemInput) => {
     const { data } = await http.post<ApiInventoryItem>('/items', payload)
