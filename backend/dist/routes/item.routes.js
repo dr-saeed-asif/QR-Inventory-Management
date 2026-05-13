@@ -14,6 +14,8 @@ const upload = (0, multer_1.default)({ storage: multer_1.default.memoryStorage()
 router.use(auth_middleware_1.authenticate);
 router.post('/', (0, auth_middleware_1.authorizePermission)('items.create'), (0, validate_middleware_1.validate)(validation_schemas_1.itemSchema), item_controller_1.itemController.create);
 router.post('/import', (0, auth_middleware_1.authorizePermission)('items.import'), upload.single('file'), item_controller_1.itemController.import);
+router.post('/catalog/sync', (0, auth_middleware_1.authorizePermission)('items.import'), item_controller_1.itemController.syncCatalog);
+router.get('/catalog', (0, auth_middleware_1.authorizePermission)('items.read'), item_controller_1.itemController.catalog);
 router.get('/', (0, auth_middleware_1.authorizePermission)('items.read'), item_controller_1.itemController.list);
 router.get('/:id/timeline', (0, auth_middleware_1.authorizePermission)('items.timeline.read'), item_controller_1.itemController.timeline);
 router.get('/:id', (0, auth_middleware_1.authorizePermission)('items.read'), item_controller_1.itemController.getById);

@@ -7,6 +7,7 @@ exports.itemController = void 0;
 const sync_1 = require("csv-parse/sync");
 const xlsx_1 = __importDefault(require("xlsx"));
 const item_service_1 = require("../services/item.service");
+const item_catalog_service_1 = require("../services/item-catalog.service");
 exports.itemController = {
     create: async (req, res, next) => {
         try {
@@ -98,6 +99,24 @@ exports.itemController = {
                 lotNumber: String(record.lotNumber ?? record.LotNumber ?? ''),
             }));
             const result = await item_service_1.itemService.createManyFromImport(rows, req.user?.userId);
+            res.status(201).json(result);
+        }
+        catch (error) {
+            next(error);
+        }
+    },
+    catalog: async (_req, res, next) => {
+        try {
+            const names = await item_catalog_service_1.itemCatalogService.listCatalogItemNames();
+            res.json({ names });
+        }
+        catch (error) {
+            next(error);
+        }
+    },
+    syncCatalog: async (_req, res, next) => {
+        try {
+            const result = await item_catalog_service_1.itemCatalogService.syncCatalogToDatabase();
             res.status(201).json(result);
         }
         catch (error) {
