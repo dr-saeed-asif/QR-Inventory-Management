@@ -1,9 +1,13 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { groceryUiStrings } from '@/lib/grocery-catalog'
+import { useUiStore } from '@/store/ui-store'
 
 interface InventoryFormProps {
   importFile: File | null
   importing: boolean
+  canCreate: boolean
+  canImport: boolean
   search: string
   category: string
   location: string
@@ -21,6 +25,8 @@ interface InventoryFormProps {
 
 export const InventoryForm = ({
   importing,
+  canCreate,
+  canImport,
   search,
   category,
   location,
@@ -34,36 +40,49 @@ export const InventoryForm = ({
   onLocationChange,
   onLowStockOnlyChange,
   onExpiredOnlyChange,
-}: InventoryFormProps) => (
-  <>
-    <div className="flex items-center justify-between">
-      <h2 className="text-lg font-semibold">Inventories</h2>
-      <div className="flex items-center gap-2">
-        <Input
-          type="file"
-          className="h-10 w-auto"
-          accept=".csv,.xlsx,.xls"
-          onChange={(event) => onImportFileChange(event.target.files?.[0] ?? null)}
-        />
-        <Button type="button" variant="outline" disabled={importing} onClick={onImport}>
-          {importing ? 'Importing...' : 'Import CSV/Excel'}
-        </Button>
-        <Button onClick={onAddItem}>+ Add Item</Button>
-      </div>
-    </div>
+}: InventoryFormProps) => {
+  const locale = useUiStore((state) => state.locale)
+  const t = groceryUiStrings(locale)
 
-    <div className="grid gap-2 md:grid-cols-5">
-      <Input placeholder="Search inventory..." value={search} onChange={(e) => onSearchChange(e.target.value)} />
-      <Input placeholder="Filter category" value={category} onChange={(e) => onCategoryChange(e.target.value)} />
-      <Input placeholder="Filter location" value={location} onChange={(e) => onLocationChange(e.target.value)} />
-      <label className="flex h-10 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm">
-        <input type="checkbox" checked={lowStockOnly} onChange={(e) => onLowStockOnlyChange(e.target.checked)} />
-        Low stock only
-      </label>
-      <label className="flex h-10 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm">
-        <input type="checkbox" checked={expiredOnly} onChange={(e) => onExpiredOnlyChange(e.target.checked)} />
-        Expired only
-      </label>
-    </div>
-  </>
-)
+  return (
+    <>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-lg font-semibold">{t.title}</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          {canImport ? (
+            <>
+              <Input
+                type="file"
+                className="h-10 w-auto min-w-[8rem]"
+                accept=".csv,.xlsx,.xls"
+                onChange={(event) => onImportFileChange(event.target.files?.[0] ?? null)}
+              />
+              <Button type="button" variant="outline" disabled={importing} onClick={onImport}>
+                {importing ? t.importing : t.importCsv}
+              </Button>
+            </>
+          ) : null}
+          {canCreate ? (
+            <Button type="button" onClick={onAddItem}>
+              {t.addItem}
+            </Button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="grid gap-2 md:grid-cols-5">
+        <Input placeholder={t.searchPlaceholder} value={search} onChange={(e) => onSearchChange(e.target.value)} />
+        <Input placeholder={t.categoryPlaceholder} value={category} onChange={(e) => onCategoryChange(e.target.value)} />
+        <Input placeholder={t.locationPlaceholder} value={location} onChange={(e) => onLocationChange(e.target.value)} />
+        <label className="flex h-10 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm">
+          <input type="checkbox" checked={lowStockOnly} onChange={(e) => onLowStockOnlyChange(e.target.checked)} />
+          {t.lowStockOnly}
+        </label>
+        <label className="flex h-10 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm">
+          <input type="checkbox" checked={expiredOnly} onChange={(e) => onExpiredOnlyChange(e.target.checked)} />
+          {t.expiredOnly}
+        </label>
+      </div>
+    </>
+  )
+}

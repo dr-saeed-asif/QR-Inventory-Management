@@ -27,6 +27,9 @@ const sortUsers = (rows: AdminUserRow[], sort: SortState) =>
 const getErrorMessage = (err: unknown, fallback: string) => {
   if (typeof err === 'object' && err !== null && 'response' in err) {
     const response = (err as { response?: { data?: { message?: string } } }).response
+    if ((err as { response?: { status?: number } }).response?.status === 403) {
+      return 'You do not have permission to access this section.'
+    }
     if (response?.data?.message) return response.data.message
   }
   if (err instanceof Error && err.message) return err.message
@@ -67,8 +70,18 @@ export const UsersPage = () => {
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(10)
   const [editor, setEditor] = useState<EditorState>(emptyEditorState)
+  const canView = currentUserRole === 'ADMIN'
+  const canCreate = currentUserRole === 'ADMIN'
+  const canEdit = currentUserRole === 'ADMIN'
+  const canDelete = currentUserRole === 'ADMIN'
 
   const loadUsers = async () => {
+    if (!canView) {
+      setLoading(false)
+      setError('You do not have permission to access this section.')
+      return
+    }
+
     setLoading(true)
     setError(null)
     try {
@@ -86,7 +99,7 @@ export const UsersPage = () => {
 
   useEffect(() => {
     void loadUsers()
-  }, [])
+  }, [canView])
 
   useEffect(() => {
     if (location.pathname.endsWith('/create')) {
@@ -166,10 +179,6 @@ export const UsersPage = () => {
     { label: 'Admins', value: users.filter((user) => user.role === 'ADMIN').length },
     { label: 'Managers', value: users.filter((user) => user.role === 'MANAGER').length },
   ]
-  const canView = currentUserRole === 'ADMIN'
-  const canCreate = currentUserRole === 'ADMIN'
-  const canEdit = currentUserRole === 'ADMIN'
-  const canDelete = currentUserRole === 'ADMIN'
   const isCreateRoute = location.pathname.endsWith('/create')
   const isEditRoute = location.pathname.includes('/edit')
 

@@ -46,8 +46,16 @@ export const categoryService = {
   },
 
   delete: async (id: string, userId?: string) => {
-    const category = await prisma.category.findUnique({ where: { id } })
+    const category = await prisma.category.findUnique({
+      where: { id },
+      include: { _count: { select: { items: true, itemLinks: true } } },
+    })
     if (!category) throw new ApiError(404, 'Category not found')
+
+    if (category._count.items > 0 || category._count.itemLinks > 0) {
+      throw new ApiError(409, 'Cannot delete category with linked inventory items')
+    }
+
     await prisma.category.delete({ where: { id } })
     await activityService.create({
       action: 'DELETE',

@@ -11,7 +11,7 @@ CREATE TABLE `StockMovement` (
     `sourceWarehouse` VARCHAR(191) NULL,
     `destinationWarehouse` VARCHAR(191) NULL,
     `adjustmentReason` ENUM('DAMAGE', 'LOSS', 'RECOUNT', 'MANUAL') NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `userId` VARCHAR(191) NULL,
 
     PRIMARY KEY (`id`)

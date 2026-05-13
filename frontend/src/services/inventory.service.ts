@@ -156,6 +156,14 @@ export const inventoryService = {
       pageSize: data.limit,
     } as PaginatedResponse<InventoryItem>
   },
+  catalogNames: async () => {
+    const { data } = await http.get<{ names: string[] }>('/items/catalog')
+    return data.names
+  },
+  syncCatalog: async () => {
+    const { data } = await http.post<{ created: number; existing: number; totalCatalogItems: number }>('/items/catalog/sync')
+    return data
+  },
   create: async (payload: ItemInput) => {
     const { data } = await http.post<ApiInventoryItem>('/items', payload)
     return mapItem(data)

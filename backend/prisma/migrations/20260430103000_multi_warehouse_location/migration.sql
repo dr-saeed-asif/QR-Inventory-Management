@@ -4,8 +4,8 @@ CREATE TABLE `Warehouse` (
     `name` VARCHAR(191) NOT NULL,
     `code` VARCHAR(191) NOT NULL,
     `address` VARCHAR(191) NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updatedAt` DATETIME(3) NOT NULL,
+    `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updatedAt` DATETIME NOT NULL,
 
     UNIQUE INDEX `Warehouse_code_key`(`code`),
     PRIMARY KEY (`id`)
@@ -21,8 +21,8 @@ CREATE TABLE `StorageLocation` (
     `bin` VARCHAR(191) NOT NULL,
     `qrValue` VARCHAR(191) NOT NULL,
     `barcodeValue` VARCHAR(191) NOT NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updatedAt` DATETIME(3) NOT NULL,
+    `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updatedAt` DATETIME NOT NULL,
 
     UNIQUE INDEX `StorageLocation_qrValue_key`(`qrValue`),
     UNIQUE INDEX `StorageLocation_barcodeValue_key`(`barcodeValue`),

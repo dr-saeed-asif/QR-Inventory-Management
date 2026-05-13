@@ -14,9 +14,11 @@ export const permissionKeys = [
   'stock.write',
   'scan.create',
   'qr.read',
+  'qr.export',
   'reports.read',
   'reports.export',
   'alerts.read',
+  'alerts.manage',
   'users.read',
   'users.create',
   'users.update',
@@ -45,8 +47,11 @@ const rolePermissions: Record<UserRole, Set<Permission>> = {
     'stock.write',
     'scan.create',
     'qr.read',
+    'qr.export',
     'reports.read',
+    'reports.export',
     'alerts.read',
+    'alerts.manage',
     'settings.read',
   ]),
   USER: new Set<Permission>([
@@ -63,5 +68,13 @@ const rolePermissions: Record<UserRole, Set<Permission>> = {
   ]),
 }
 
-export const hasPermission = (role: UserRole | undefined, permission: Permission) =>
-  role ? rolePermissions[role].has(permission) : false
+export const hasPermission = (
+  role: UserRole | undefined,
+  permission: Permission,
+  grantedPermissions?: string[],
+) => {
+  if (Array.isArray(grantedPermissions) && grantedPermissions.length > 0) {
+    return grantedPermissions.includes(permission)
+  }
+  return role ? rolePermissions[role].has(permission) : false
+}

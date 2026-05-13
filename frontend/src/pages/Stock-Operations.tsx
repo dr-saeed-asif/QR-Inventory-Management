@@ -4,10 +4,14 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { stockService, type StockMovement } from '@/services/stock.service'
 import { useToast } from '@/hooks/use-toast'
+import { useAuthStore } from '@/store/auth-store'
+import { hasPermission } from '@/lib/permissions'
 
 type OperationType = 'IN' | 'OUT' | 'TRANSFER' | 'ADJUSTMENT'
 
 export const StockOperationsPage = () => {
+  const user = useAuthStore((state) => state.user)
+  const canWriteStock = hasPermission(user?.role, 'stock.write', user?.permissions)
   const [activeOperation, setActiveOperation] = useState<OperationType>('IN')
   const [itemId, setItemId] = useState('')
   const [quantity, setQuantity] = useState(1)
@@ -42,15 +46,17 @@ export const StockOperationsPage = () => {
       <Card className="space-y-4">
         <h2 className="text-lg font-semibold">Stock Operations</h2>
         <div className="flex flex-wrap gap-2">
-          {(['IN', 'OUT', 'TRANSFER', 'ADJUSTMENT'] as const).map((operation) => (
-            <Button key={operation} type="button" variant={activeOperation === operation ? 'default' : 'outline'} onClick={() => setActiveOperation(operation)}>{operation}</Button>
-          ))}
+          {canWriteStock
+            ? (['IN', 'OUT', 'TRANSFER', 'ADJUSTMENT'] as const).map((operation) => (
+                <Button key={operation} type="button" variant={activeOperation === operation ? 'default' : 'outline'} onClick={() => setActiveOperation(operation)}>{operation}</Button>
+              ))
+            : null}
         </div>
         <div className="grid gap-2 md:grid-cols-2">
-          <Input placeholder="Item ID" value={itemId} onChange={(event) => setItemId(event.target.value)} />
-          <Input type="number" placeholder="Quantity" value={String(quantity)} onChange={(event) => setQuantity(Number(event.target.value || 0))} />
+          <Input placeholder="Item ID" value={itemId} onChange={(event) => setItemId(event.target.value)} disabled={!canWriteStock} />
+          <Input type="number" placeholder="Quantity" value={String(quantity)} onChange={(event) => setQuantity(Number(event.target.value || 0))} disabled={!canWriteStock} />
         </div>
-        <Button type="button" disabled={submitting} onClick={() => void execute()}>{submitting ? 'Processing...' : `Run ${activeOperation}`}</Button>
+        {canWriteStock ? <Button type="button" disabled={submitting} onClick={() => void execute()}>{submitting ? 'Processing...' : `Run ${activeOperation}`}</Button> : null}
       </Card>
       <Card className="space-y-3">
         <h3 className="text-base font-semibold">Stock History</h3>

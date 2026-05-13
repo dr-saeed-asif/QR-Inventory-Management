@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { MouseEvent as ReactMouseEvent } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
   BarChart3,
@@ -15,13 +16,16 @@ import {
   ChevronRight,
   ChevronsUpDown,
   LogOut,
+  Bot,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/auth-store'
+import { useUiStore } from '@/store/ui-store'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { hasPermission, type Permission } from '@/lib/permissions'
 import { alertsService } from '@/services/alerts.service'
 import type { AlertSummary } from '@/types'
+import { AiAssistant } from '@/components/ai/ai-assistant'
 
 const links = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard.read' },
@@ -38,14 +42,26 @@ const links = [
 ] as const satisfies Array<{ to: string; label: string; icon: (typeof LayoutDashboard); permission: Permission | null }>
 
 export const AppShell = () => {
+  const MIN_ASSISTANT_WIDTH = 320
+  const MAX_ASSISTANT_WIDTH = 700
   const [collapsed, setCollapsed] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [assistantOpen, setAssistantOpen] = useState(false)
+  const [assistantWidth, setAssistantWidth] = useState(420)
+  const [isResizingAssistant, setIsResizingAssistant] = useState(false)
   const [alertSummary, setAlertSummary] = useState<AlertSummary | null>(null)
   const navigate = useNavigate()
   const user = useAuthStore((state) => state.user)
   const logout = useAuthStore((state) => state.logout)
+  const locale = useUiStore((state) => state.locale)
+  const setLocale = useUiStore((state) => state.setLocale)
   const lastUnreadCount = useRef(0)
-  const visibleLinks = links.filter((link) => (link.permission ? hasPermission(user?.role, link.permission) : true))
+  const resizeStartXRef = useRef(0)
+  const resizeStartWidthRef = useRef(assistantWidth)
+  const canReadAlerts = hasPermission(user?.role, 'alerts.read', user?.permissions)
+  const visibleLinks = links.filter((link) =>
+    link.permission ? hasPermission(user?.role, link.permission, user?.permissions) : true,
+  )
   const initials = (user?.name ?? 'User')
     .split(' ')
     .filter(Boolean)
@@ -57,6 +73,10 @@ export const AppShell = () => {
     let cancelled = false
 
     const loadSummary = async () => {
+      if (!canReadAlerts) {
+        setAlertSummary(null)
+        return
+      }
       try {
         const summary = await alertsService.summary()
         if (cancelled) return
@@ -90,7 +110,40 @@ export const AppShell = () => {
       cancelled = true
       window.clearInterval(interval)
     }
-  }, [])
+  }, [canReadAlerts])
+
+  useEffect(() => {
+    if (!isResizingAssistant) return
+
+    const onMouseMove = (event: MouseEvent) => {
+      const deltaX = event.clientX - resizeStartXRef.current
+      const next = resizeStartWidthRef.current - deltaX
+      const bounded = Math.max(MIN_ASSISTANT_WIDTH, Math.min(MAX_ASSISTANT_WIDTH, next))
+      setAssistantWidth(bounded)
+    }
+
+    const onMouseUp = () => {
+      setIsResizingAssistant(false)
+    }
+
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [isResizingAssistant])
+
+  const startAssistantResize = (event: ReactMouseEvent<HTMLDivElement>) => {
+    resizeStartXRef.current = event.clientX
+    resizeStartWidthRef.current = assistantWidth
+    setIsResizingAssistant(true)
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
@@ -217,19 +270,62 @@ export const AppShell = () => {
             <p className="font-semibold">{user?.name ?? 'User'}</p>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="outline" className="relative" onClick={() => navigate('/admin/alerts')}>
-              <Bell className="h-4 w-4" />
-              <span>Alerts</span>
-              {alertSummary?.unread ? (
-                <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[11px] font-semibold text-white">
-                  {alertSummary.unread}
-                </span>
-              ) : null}
-            </Button>
-          </div>
+              <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs font-medium">
+                <button
+                  type="button"
+                  className={`rounded-md px-2.5 py-1 transition-colors ${locale === 'en' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  onClick={() => setLocale('en')}
+                >
+                  English
+                </button>
+                <button
+                  type="button"
+                  className={`rounded-md px-2.5 py-1 transition-colors ${locale === 'ur' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  onClick={() => setLocale('ur')}
+                >
+                  Urdu
+                </button>
+              </div>
+              <Button variant="outline" onClick={() => setAssistantOpen((current) => !current)}>
+                <Bot className="h-4 w-4" />
+                <span>{assistantOpen ? 'Hide AI' : 'Open AI'}</span>
+              </Button>
+          {canReadAlerts ? (
+              <Button variant="outline" className="relative" onClick={() => navigate('/admin/alerts')}>
+                <Bell className="h-4 w-4" />
+                <span>Open alerts</span>
+                {alertSummary?.unread ? (
+                  <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[11px] font-semibold text-white">
+                    {alertSummary.unread}
+                  </span>
+                ) : null}
+              </Button>
+          ) : null}
+            </div>
         </header>
-        <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
-          <Outlet />
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <div className="flex h-full min-h-0">
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
+              <Outlet />
+            </div>
+            {assistantOpen ? (
+              <>
+                <div
+                  role="separator"
+                  aria-orientation="vertical"
+                  aria-label="Resize chatbot panel"
+                  className="w-1 shrink-0 cursor-col-resize bg-slate-200/70 transition-colors hover:bg-sky-400/70 active:bg-sky-500"
+                  onMouseDown={startAssistantResize}
+                />
+                <aside
+                  className="h-full shrink-0 border-l border-slate-200 bg-white/90 p-4 backdrop-blur md:p-5"
+                  style={{ width: `${assistantWidth}px` }}
+                >
+                  <AiAssistant className="h-full" />
+                </aside>
+              </>
+            ) : null}
+          </div>
         </div>
       </main>
     </div>

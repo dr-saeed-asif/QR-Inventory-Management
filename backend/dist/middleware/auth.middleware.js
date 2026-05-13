@@ -27,7 +27,10 @@ const authorize = (roles) => (req, _res, next) => {
 };
 exports.authorize = authorize;
 const authorizePermission = (permission) => (req, _res, next) => {
-    if (!req.user || !(0, permissions_1.hasPermission)(req.user.role, permission)) {
+    const userPermissions = req.user?.permissions ?? [];
+    const allowedByTokenPermissions = userPermissions.includes(permission);
+    const allowedByDefaultRole = req.user ? (0, permissions_1.hasPermission)(req.user.role, permission) : false;
+    if (!req.user || (!allowedByTokenPermissions && !allowedByDefaultRole)) {
         return next(new api_error_1.ApiError(403, 'Insufficient permissions'));
     }
     next();

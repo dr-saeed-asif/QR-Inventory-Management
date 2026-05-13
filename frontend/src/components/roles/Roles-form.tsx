@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 
-type MatrixAction = 'create' | 'edit' | 'delete' | 'view'
+type MatrixAction = 'create' | 'edit' | 'delete' | 'view' | 'export'
 
 interface ActionColumn {
   key: MatrixAction
@@ -42,7 +42,7 @@ export const RolesForm = ({
 
     <div>
       <p className="mb-3 text-sm font-semibold text-slate-700">Permissions</p>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {actionColumns.map((column) => (
           <div key={column.key} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <h3 className="mb-3 text-base font-semibold text-slate-800">{column.label}</h3>

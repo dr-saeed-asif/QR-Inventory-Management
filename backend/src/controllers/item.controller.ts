@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express'
 import { parse } from 'csv-parse/sync'
 import XLSX from 'xlsx'
 import { itemService } from '../services/item.service'
+import { itemCatalogService } from '../services/item-catalog.service'
 
 export const itemController = {
   create: async (req: Request, res: Response, next: NextFunction) => {
@@ -89,6 +90,22 @@ export const itemController = {
       }))
 
       const result = await itemService.createManyFromImport(rows, req.user?.userId)
+      res.status(201).json(result)
+    } catch (error) {
+      next(error)
+    }
+  },
+  catalog: async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const names = await itemCatalogService.listCatalogItemNames()
+      res.json({ names })
+    } catch (error) {
+      next(error)
+    }
+  },
+  syncCatalog: async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await itemCatalogService.syncCatalogToDatabase()
       res.status(201).json(result)
     } catch (error) {
       next(error)

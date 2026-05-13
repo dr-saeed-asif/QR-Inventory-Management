@@ -8,6 +8,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "prisma:generate": "prisma generate",
+    "prisma:strip-sql-dump": "node prisma/scripts/strip-mysql-fractional-seconds.cjs",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "admin:seed": "tsx src/scripts/seed-admin.ts",

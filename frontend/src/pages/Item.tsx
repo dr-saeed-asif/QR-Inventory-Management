@@ -15,12 +15,32 @@ export const AddItemPage = () => {
   const [qrImage, setQrImage] = useState<string>('')
   const [barcodeImage, setBarcodeImage] = useState<string>('')
   const [categories, setCategories] = useState<Category[]>([])
+  const [itemOptions, setItemOptions] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errors, setErrors] = useState<Partial<Record<keyof ItemInput, string>>>({})
   const [form, setForm] = useState<ItemInput>({ name: '', sku: '', categoryId: '', quantity: 0, price: 0, supplier: '', location: '', description: '' })
 
   useEffect(() => {
     categoryService.list().then(setCategories)
+  }, [])
+
+  useEffect(() => {
+    const loadItemOptions = async () => {
+      try {
+        // Seed static catalog in DB (if permission allows), then read suggestions from backend.
+        try {
+          await inventoryService.syncCatalog()
+        } catch {
+          // Ignore if user cannot import or if already seeded.
+        }
+        const names = await inventoryService.catalogNames()
+        setItemOptions(names)
+      } catch {
+        setItemOptions([])
+      }
+    }
+
+    void loadItemOptions()
   }, [])
 
   const onSubmit = async (values: ItemInput) => {
@@ -62,7 +82,7 @@ export const AddItemPage = () => {
   return (
     <Card className="space-y-4">
       <h2 className="text-lg font-semibold">Add Item</h2>
-      <ItemForm form={form} categories={categories} errors={errors} isSubmitting={isSubmitting} onFormChange={(field, value) => setForm((prev) => ({ ...prev, [field]: value }))} onSubmit={() => void onSubmit(form)} />
+      <ItemForm form={form} categories={categories} itemOptions={itemOptions} errors={errors} isSubmitting={isSubmitting} onFormChange={(field, value) => setForm((prev) => ({ ...prev, [field]: value }))} onSubmit={() => void onSubmit(form)} />
       <ItemTable qrImage={qrImage} barcodeImage={barcodeImage} onDownload={downloadGeneratedCode} />
     </Card>
   )

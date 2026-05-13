@@ -5,8 +5,8 @@ CREATE TABLE `User` (
     `email` VARCHAR(191) NOT NULL,
     `passwordHash` VARCHAR(191) NOT NULL,
     `role` ENUM('ADMIN', 'USER') NOT NULL DEFAULT 'USER',
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updatedAt` DATETIME(3) NOT NULL,
+    `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updatedAt` DATETIME NOT NULL,
 
     UNIQUE INDEX `User_email_key`(`email`),
     PRIMARY KEY (`id`)
@@ -16,8 +16,8 @@ CREATE TABLE `User` (
 CREATE TABLE `Category` (
     `id` VARCHAR(191) NOT NULL,
     `name` VARCHAR(191) NOT NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updatedAt` DATETIME(3) NOT NULL,
+    `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updatedAt` DATETIME NOT NULL,
 
     UNIQUE INDEX `Category_name_key`(`name`),
     PRIMARY KEY (`id`)
@@ -35,8 +35,8 @@ CREATE TABLE `Item` (
     `description` VARCHAR(191) NULL,
     `qrValue` VARCHAR(191) NOT NULL,
     `lowStockAt` INTEGER NOT NULL DEFAULT 5,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updatedAt` DATETIME(3) NOT NULL,
+    `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updatedAt` DATETIME NOT NULL,
     `categoryId` VARCHAR(191) NOT NULL,
 
     UNIQUE INDEX `Item_sku_key`(`sku`),
@@ -49,7 +49,7 @@ CREATE TABLE `ScanHistory` (
     `id` VARCHAR(191) NOT NULL,
     `qrCode` VARCHAR(191) NOT NULL,
     `note` VARCHAR(191) NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `itemId` VARCHAR(191) NOT NULL,
     `userId` VARCHAR(191) NULL,
 
@@ -63,7 +63,7 @@ CREATE TABLE `ActivityLog` (
     `entityType` VARCHAR(191) NOT NULL,
     `entityId` VARCHAR(191) NOT NULL,
     `description` VARCHAR(191) NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `userId` VARCHAR(191) NULL,
     `itemId` VARCHAR(191) NULL,
 
@@ -77,7 +77,7 @@ CREATE TABLE `AuditTrail` (
     `entityId` VARCHAR(191) NOT NULL,
     `oldData` JSON NULL,
     `newData` JSON NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `userId` VARCHAR(191) NULL,
     `itemId` VARCHAR(191) NULL,
 

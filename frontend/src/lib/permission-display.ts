@@ -4,6 +4,7 @@ const moduleLabelMap: Record<string, string> = {
   categories: 'Category',
   qr: 'QR Code',
   reports: 'Report',
+  alerts: 'Alerts',
   scan: 'Scan',
   stock: 'Stock',
   users: 'Users',

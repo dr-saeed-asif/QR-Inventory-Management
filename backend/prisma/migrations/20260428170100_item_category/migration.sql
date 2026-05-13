@@ -5,7 +5,7 @@ ALTER TABLE `item` ADD COLUMN `reservedQty` INTEGER NOT NULL DEFAULT 0;
 CREATE TABLE `ItemCategory` (
     `itemId` VARCHAR(191) NOT NULL,
     `categoryId` VARCHAR(191) NOT NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY (`itemId`, `categoryId`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -14,8 +14,8 @@ CREATE TABLE `ItemCategory` (
 CREATE TABLE `Tag` (
     `id` VARCHAR(191) NOT NULL,
     `name` VARCHAR(191) NOT NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updatedAt` DATETIME(3) NOT NULL,
+    `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updatedAt` DATETIME NOT NULL,
 
     UNIQUE INDEX `Tag_name_key`(`name`),
     PRIMARY KEY (`id`)
@@ -25,7 +25,7 @@ CREATE TABLE `Tag` (
 CREATE TABLE `ItemTag` (
     `itemId` VARCHAR(191) NOT NULL,
     `tagId` VARCHAR(191) NOT NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY (`itemId`, `tagId`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -42,8 +42,8 @@ CREATE TABLE `ItemVariant` (
     `quantity` INTEGER NOT NULL DEFAULT 0,
     `reservedQty` INTEGER NOT NULL DEFAULT 0,
     `price` DECIMAL(10, 2) NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updatedAt` DATETIME(3) NOT NULL,
+    `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updatedAt` DATETIME NOT NULL,
 
     UNIQUE INDEX `ItemVariant_sku_key`(`sku`),
     PRIMARY KEY (`id`)

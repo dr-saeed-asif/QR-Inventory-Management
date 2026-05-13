@@ -9,6 +9,7 @@ generator client {
 
 datasource db {
   provider = "mysql"
+  // DateTime @db.DateTime(0): avoids DATETIME(3) / CURRENT_TIMESTAMP(3) for older MySQL imports & hosts.
   url      = env("DATABASE_URL")
 }
 
@@ -50,8 +51,8 @@ model User {
   email        String        @unique
   passwordHash String
   role         UserRole      @default(USER)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  createdAt    DateTime @db.DateTime(0) @default(now())
+  updatedAt    DateTime @db.DateTime(0) @updatedAt
   scans        ScanHistory[]
   activities   ActivityLog[]
   audits       AuditTrail[]
@@ -61,8 +62,8 @@ model User {
 model Category {
   id        String   @id @default(uuid())
   name      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @db.DateTime(0) @default(now())
+  updatedAt DateTime @db.DateTime(0) @updatedAt
   items     Item[]
   itemLinks ItemCategory[]
 }
@@ -73,7 +74,7 @@ model Item {
   sku         String        @unique
   quantity    Int
   reservedQty Int           @default(0)
-  expiryDate  DateTime?
+  expiryDate  DateTime? @db.DateTime(0)
   price       Decimal       @db.Decimal(10, 2)
   supplier    String
   location    String
@@ -81,8 +82,8 @@ model Item {
   qrValue     String        @unique
   barcodeValue String       @unique
   lowStockAt  Int           @default(5)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  createdAt   DateTime @db.DateTime(0) @default(now())
+  updatedAt   DateTime @db.DateTime(0) @updatedAt
   categoryId  String
   locationId  String?
   category    Category      @relation(fields: [categoryId], references: [id])
@@ -103,8 +104,8 @@ model Warehouse {
   name        String
   code        String            @unique
   address     String?
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  createdAt   DateTime @db.DateTime(0) @default(now())
+  updatedAt   DateTime @db.DateTime(0) @updatedAt
   locations   StorageLocation[]
 }
 
@@ -117,8 +118,8 @@ model StorageLocation {
   bin         String
   qrValue     String      @unique
   barcodeValue String     @unique
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt   DateTime @db.DateTime(0) @default(now())
+  updatedAt   DateTime @db.DateTime(0) @updatedAt
   warehouse   Warehouse   @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
   items       Item[]
 
@@ -130,10 +131,10 @@ model ItemBatch {
   itemId      String
   batchNumber String
   lotNumber   String?
-  expiryDate  DateTime?
+  expiryDate  DateTime? @db.DateTime(0)
   quantity    Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @db.DateTime(0) @default(now())
+  updatedAt   DateTime @db.DateTime(0) @updatedAt
   item        Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
 }
 
@@ -149,7 +150,7 @@ model StockMovement {
   sourceWarehouse  String?
   destinationWarehouse String?
   adjustmentReason StockAdjustmentReason?
-  createdAt        DateTime             @default(now())
+  createdAt        DateTime @db.DateTime(0) @default(now())
   userId           String?
   item             Item                 @relation(fields: [itemId], references: [id], onDelete: Cascade)
   user             User?                @relation(fields: [userId], references: [id])
@@ -158,7 +159,7 @@ model StockMovement {
 model ItemCategory {
   itemId     String
   categoryId String
-  createdAt  DateTime @default(now())
+  createdAt  DateTime @db.DateTime(0) @default(now())
   item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
   category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
@@ -168,15 +169,15 @@ model ItemCategory {
 model Tag {
   id        String   @id @default(uuid())
   name      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @db.DateTime(0) @default(now())
+  updatedAt DateTime @db.DateTime(0) @updatedAt
   items     ItemTag[]
 }
 
 model ItemTag {
   itemId     String
   tagId      String
-  createdAt  DateTime @default(now())
+  createdAt  DateTime @db.DateTime(0) @default(now())
   item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
   tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
@@ -194,8 +195,8 @@ model ItemVariant {
   quantity    Int      @default(0)
   reservedQty Int      @default(0)
   price       Decimal? @db.Decimal(10, 2)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @db.DateTime(0) @default(now())
+  updatedAt   DateTime @db.DateTime(0) @updatedAt
   item        Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
 }
 
@@ -203,7 +204,7 @@ model ScanHistory {
   id        String   @id @default(uuid())
   qrCode    String
   note      String?
-  createdAt DateTime @default(now())
+  createdAt DateTime @db.DateTime(0) @default(now())
   itemId    String
   userId    String?
   item      Item     @relation(fields: [itemId], references: [id])
@@ -216,7 +217,7 @@ model ActivityLog {
   entityType  String
   entityId    String
   description String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime @db.DateTime(0) @default(now())
   userId      String?
   itemId      String?
   user        User?    @relation(fields: [userId], references: [id])
@@ -229,7 +230,7 @@ model AuditTrail {
   entityId   String
   oldData    Json?
   newData    Json?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime @db.DateTime(0) @default(now())
   userId     String?
   itemId     String?
   user       User?    @relation(fields: [userId], references: [id])
@@ -246,13 +247,13 @@ model Alert {
   itemId      String?
   payload     Json?
   isRead      Boolean        @default(false)
-  readAt      DateTime?
-  resolvedAt  DateTime?
-  inAppSentAt DateTime?
-  emailSentAt DateTime?
-  desktopSentAt DateTime?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  readAt      DateTime? @db.DateTime(0)
+  resolvedAt  DateTime? @db.DateTime(0)
+  inAppSentAt DateTime? @db.DateTime(0)
+  emailSentAt DateTime? @db.DateTime(0)
+  desktopSentAt DateTime? @db.DateTime(0)
+  createdAt   DateTime @db.DateTime(0) @default(now())
+  updatedAt   DateTime @db.DateTime(0) @updatedAt
   item        Item?          @relation(fields: [itemId], references: [id], onDelete: SetNull)
 
   @@index([type, severity, isRead])

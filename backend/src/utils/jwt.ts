@@ -6,6 +6,7 @@ import { env } from '../config/env'
 export interface JwtPayload {
   userId: string
   role: UserRole
+  permissions?: string[]
 }
 
 export const signToken = (payload: JwtPayload) =>

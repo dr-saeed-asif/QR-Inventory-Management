@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
+import { hasPermission } from '@/lib/permissions'
+import { useAuthStore } from '@/store/auth-store'
 
 const severityStyles: Record<Alert['severity'], string> = {
   INFO: 'border-sky-200 bg-sky-50 text-sky-900',
@@ -16,12 +18,21 @@ const severityStyles: Record<Alert['severity'], string> = {
 
 export const AlertsPage = () => {
   const { toast } = useToast()
+  const user = useAuthStore((state) => state.user)
+  const canReadAlerts = hasPermission(user?.role, 'alerts.read', user?.permissions)
+  const canManageAlerts = hasPermission(user?.role, 'alerts.manage', user?.permissions)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [summary, setSummary] = useState<AlertSummary>({ total: 0, unread: 0, critical: 0, warning: 0, info: 0, lowStock: 0, expiry: 0, overstock: 0 })
   const [alerts, setAlerts] = useState<Alert[]>([])
 
   const load = async () => {
+    if (!canReadAlerts) {
+      setAlerts([])
+      setSummary({ total: 0, unread: 0, critical: 0, warning: 0, info: 0, lowStock: 0, expiry: 0, overstock: 0 })
+      setLoading(false)
+      return
+    }
     setLoading(true)
     try {
       const [summaryData, alertData] = await Promise.all([alertsService.summary(), alertsService.list()])
@@ -36,10 +47,11 @@ export const AlertsPage = () => {
 
   useEffect(() => {
     void load()
-  }, [])
+  }, [canReadAlerts])
 
   const unreadAlerts = useMemo(() => alerts.filter((alert) => !alert.isRead), [alerts])
   const refreshAlerts = async () => {
+    if (!canManageAlerts) return
     setRefreshing(true)
     try {
       await alertsService.refresh()
@@ -51,11 +63,13 @@ export const AlertsPage = () => {
   }
 
   const markRead = async (id: string) => {
+    if (!canManageAlerts) return
     await alertsService.markRead(id)
     setAlerts((current) => current.map((alert) => (alert.id === id ? { ...alert, isRead: true, readAt: new Date().toISOString() } : alert)))
     setSummary((current) => ({ ...current, unread: Math.max(0, current.unread - 1) }))
   }
 
+  if (!canReadAlerts) return <EmptyState title="Access denied" subtitle="You do not have permission to view alerts." />
   if (loading) return <Card className="p-6 text-sm text-slate-500">Loading alerts...</Card>
 
   return (
@@ -66,8 +80,12 @@ export const AlertsPage = () => {
           <div><p className="text-sm uppercase tracking-[0.2em] text-slate-500">Alerts</p><h1 className="text-2xl font-semibold text-slate-900">Inventory notifications</h1></div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={refreshAlerts} disabled={refreshing}><RefreshCcw className={cn('h-4 w-4', refreshing && 'animate-spin')} />{refreshing ? 'Refreshing...' : 'Refresh rules'}</Button>
-          <Button variant="outline" onClick={() => alertsService.markAllRead()} disabled={summary.unread === 0}><CheckCheck className="h-4 w-4" />Mark all read</Button>
+          {canManageAlerts ? (
+            <>
+              <Button variant="outline" onClick={refreshAlerts} disabled={refreshing}><RefreshCcw className={cn('h-4 w-4', refreshing && 'animate-spin')} />{refreshing ? 'Refreshing...' : 'Refresh rules'}</Button>
+              <Button variant="outline" onClick={() => alertsService.markAllRead()} disabled={summary.unread === 0}><CheckCheck className="h-4 w-4" />Mark all read</Button>
+            </>
+          ) : null}
         </div>
       </div>
       {alerts.length === 0 ? <EmptyState title="No active alerts" subtitle="When inventory crosses a threshold, alerts appear here." /> : (
@@ -76,7 +94,7 @@ export const AlertsPage = () => {
             <Card key={alert.id} className={cn('border-l-4', severityStyles[alert.severity])}>
               <div className="flex items-start justify-between gap-3">
                 <div><h3 className="text-lg font-semibold text-slate-900">{alert.title}</h3><p className="text-sm text-slate-600">{alert.message}</p></div>
-                {!alert.isRead ? <Button variant="outline" onClick={() => void markRead(alert.id)}>Mark read</Button> : null}
+                {canManageAlerts && !alert.isRead ? <Button variant="outline" onClick={() => void markRead(alert.id)}>Mark read</Button> : null}
               </div>
             </Card>
           ))}

@@ -196,9 +196,12 @@ exports.itemService = {
         const lowStockIds = lowStockOnly
             ? (await prisma_1.prisma.$queryRaw(client_1.Prisma.sql `SELECT id FROM Item WHERE quantity <= lowStockAt`)).map((row) => row.id)
             : undefined;
+        const rawCategory = (query.categoryId || query.category || '').trim();
+        const categoryLooksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(rawCategory);
         const where = {
             name: query.search ? { contains: query.search } : undefined,
-            categoryId: query.categoryId || query.category || undefined,
+            categoryId: rawCategory && categoryLooksLikeUuid ? rawCategory : undefined,
+            category: rawCategory && !categoryLooksLikeUuid ? { name: { contains: rawCategory } } : undefined,
             location: query.location ? { contains: query.location } : undefined,
             OR: expiredOnly
                 ? [

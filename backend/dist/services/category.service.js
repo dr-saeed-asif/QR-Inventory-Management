@@ -45,9 +45,15 @@ exports.categoryService = {
         return category;
     },
     delete: async (id, userId) => {
-        const category = await prisma_1.prisma.category.findUnique({ where: { id } });
+        const category = await prisma_1.prisma.category.findUnique({
+            where: { id },
+            include: { _count: { select: { items: true, itemLinks: true } } },
+        });
         if (!category)
             throw new api_error_1.ApiError(404, 'Category not found');
+        if (category._count.items > 0 || category._count.itemLinks > 0) {
+            throw new api_error_1.ApiError(409, 'Cannot delete category with linked inventory items');
+        }
         await prisma_1.prisma.category.delete({ where: { id } });
         await activity_service_1.activityService.create({
             action: 'DELETE',

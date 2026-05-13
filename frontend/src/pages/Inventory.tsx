@@ -4,6 +4,7 @@ import { barcodeToDataUrl } from '@/lib/barcode'
 import { inventoryService } from '@/services/inventory.service'
 import type { InventoryItem } from '@/types'
 import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { useToast } from '@/hooks/use-toast'
 import { InventoryForm } from '@/components/inventory/Inventory-form'
@@ -11,8 +12,17 @@ import { InventoryTable } from '@/components/inventory/Inventory-table'
 import useDebounce from '@/hooks/use-debounce'
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
+import { useAuthStore } from '@/store/auth-store'
+import { hasPermission } from '@/lib/permissions'
 
 export const InventoryListPage = () => {
+  const [codePreview, setCodePreview] = useState<{
+    type: 'qr' | 'barcode'
+    title: string
+    sku: string
+    value: string
+    imageUrl: string
+  } | null>(null)
   const [items, setItems] = useState<InventoryItem[]>([])
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
@@ -25,8 +35,18 @@ export const InventoryListPage = () => {
   const [total, setTotal] = useState(0)
   const [importFile, setImportFile] = useState<File | null>(null)
   const [importing, setImporting] = useState(false)
+  const [viewItem, setViewItem] = useState<InventoryItem | null>(null)
+  const [editItem, setEditItem] = useState<InventoryItem | null>(null)
+  const [savingEdit, setSavingEdit] = useState(false)
   const { toast } = useToast()
   const navigate = useNavigate()
+  const user = useAuthStore((state) => state.user)
+  const canCreateItem = hasPermission(user?.role, 'items.create', user?.permissions)
+  const canImportItem = hasPermission(user?.role, 'items.import', user?.permissions)
+  const canUpdateItem = hasPermission(user?.role, 'items.update', user?.permissions)
+  const canDeleteItem = hasPermission(user?.role, 'items.delete', user?.permissions)
+  const canReadQr = hasPermission(user?.role, 'qr.read', user?.permissions)
+  const canExportQr = hasPermission(user?.role, 'qr.export', user?.permissions)
 
   const loadItems = (overrides?: Partial<{ search: string; category: string; location: string; sortBy: string; sortOrder: 'asc' | 'desc'; page: number; lowStockOnly: boolean; expiredOnly: boolean }>) => {
     const qSearch = overrides?.search ?? search
@@ -98,6 +118,44 @@ export const InventoryListPage = () => {
     URL.revokeObjectURL(objectUrl)
   }
 
+  const showQr = async (item: InventoryItem) => {
+    try {
+      const imageUrl = await QRCode.toDataURL(item.qrValue)
+      setCodePreview({
+        type: 'qr',
+        title: `${item.name} QR Code`,
+        sku: item.sku,
+        value: item.qrValue,
+        imageUrl,
+      })
+    } catch (error) {
+      toast({
+        title: 'Unable to render QR',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'error',
+      })
+    }
+  }
+
+  const showBarcode = (item: InventoryItem) => {
+    try {
+      const imageUrl = barcodeToDataUrl(item.barcodeValue)
+      setCodePreview({
+        type: 'barcode',
+        title: `${item.name} Barcode`,
+        sku: item.sku,
+        value: item.barcodeValue,
+        imageUrl,
+      })
+    } catch (error) {
+      toast({
+        title: 'Unable to render barcode',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'error',
+      })
+    }
+  }
+
   const handleDelete = async (item: InventoryItem) => {
     if (!window.confirm(`Delete ${item.name}?`)) return
     try {
@@ -132,12 +190,41 @@ export const InventoryListPage = () => {
     }
   }
 
+  const handleSaveEdit = async () => {
+    if (!editItem) return
+    setSavingEdit(true)
+    try {
+      await inventoryService.update(editItem.id, {
+        name: editItem.name,
+        sku: editItem.sku,
+        quantity: editItem.quantity,
+        price: editItem.price,
+        supplier: editItem.supplier,
+        location: editItem.location,
+        description: editItem.description,
+      })
+      toast({ title: 'Item updated successfully' })
+      setEditItem(null)
+      await loadItems()
+    } catch (error) {
+      toast({
+        title: 'Update failed',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'error',
+      })
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
   if (items.length === 0) {
     return (
       <Card className="space-y-4">
         <InventoryForm
           importFile={importFile}
           importing={importing}
+          canCreate={canCreateItem}
+          canImport={canImportItem}
           search={search}
           category={category}
           location={location}
@@ -162,6 +249,8 @@ export const InventoryListPage = () => {
       <InventoryForm
         importFile={importFile}
         importing={importing}
+          canCreate={canCreateItem}
+          canImport={canImportItem}
         search={search}
         category={category}
         location={location}
@@ -178,18 +267,101 @@ export const InventoryListPage = () => {
       />
       <InventoryTable
         items={items}
+        canQrRead={canReadQr}
+        canQrExport={canExportQr || canReadQr}
+        canUpdate={canUpdateItem}
+        canDelete={canDeleteItem}
         page={page}
         total={total}
         onPrevPage={() => setPage((p) => p - 1)}
         onNextPage={() => setPage((p) => p + 1)}
-        onShowQr={(item) => void downloadQr(item.qrValue, item.sku)}
-        onShowBarcode={(item) => void downloadBarcode(item.barcodeValue, item.sku)}
-        onDownloadQr={(item) => downloadQr(item.qrValue, item.sku)}
-        onDownloadBarcode={(item) => downloadBarcode(item.barcodeValue, item.sku)}
-        onView={() => toast({ title: 'No modal mode', description: 'Only form flow is enabled.' })}
-        onEdit={() => toast({ title: 'No modal mode', description: 'Only form flow is enabled.' })}
+        onShowQr={(item) => void showQr(item)}
+        onShowBarcode={(item) => void showBarcode(item)}
+        onDownloadQr={(item) => void downloadQr(item.qrValue, item.sku)}
+        onDownloadBarcode={(item) => void downloadBarcode(item.barcodeValue, item.sku)}
+        onView={(item) => setViewItem(item)}
+        onEdit={(item) => setEditItem({ ...item })}
         onDelete={(item) => void handleDelete(item)}
       />
+      {viewItem ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-lg font-semibold text-slate-900">{viewItem.name}</p>
+                <p className="text-sm text-slate-600">SKU: {viewItem.sku}</p>
+              </div>
+              <Button type="button" variant="outline" onClick={() => setViewItem(null)}>
+                Close
+              </Button>
+            </div>
+            <div className="grid gap-3 text-sm md:grid-cols-2">
+              <p><span className="font-medium">Category:</span> {viewItem.category}</p>
+              <p><span className="font-medium">Location:</span> {viewItem.location}</p>
+              <p><span className="font-medium">On Hand:</span> {viewItem.quantity}</p>
+              <p><span className="font-medium">Reserved:</span> {viewItem.reservedQty}</p>
+              <p><span className="font-medium">Available:</span> {viewItem.availableQty}</p>
+              <p><span className="font-medium">Price:</span> {viewItem.price}</p>
+              <p className="md:col-span-2"><span className="font-medium">Description:</span> {viewItem.description || '-'}</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {editItem ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="w-full max-w-3xl rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-lg font-semibold text-slate-900">Edit Item</p>
+                <p className="text-sm text-slate-600">ID: {editItem.id}</p>
+              </div>
+              <Button type="button" variant="outline" onClick={() => setEditItem(null)}>
+                Close
+              </Button>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <input className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={editItem.name} onChange={(e) => setEditItem((prev) => (prev ? { ...prev, name: e.target.value } : prev))} placeholder="Name" />
+              <input className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={editItem.sku} onChange={(e) => setEditItem((prev) => (prev ? { ...prev, sku: e.target.value } : prev))} placeholder="SKU" />
+              <input className="h-10 rounded-md border border-slate-300 px-3 text-sm" type="number" value={editItem.quantity} onChange={(e) => setEditItem((prev) => (prev ? { ...prev, quantity: Number(e.target.value || 0) } : prev))} placeholder="Quantity" />
+              <input className="h-10 rounded-md border border-slate-300 px-3 text-sm" type="number" step="0.01" value={editItem.price} onChange={(e) => setEditItem((prev) => (prev ? { ...prev, price: Number(e.target.value || 0) } : prev))} placeholder="Price" />
+              <input className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={editItem.supplier} onChange={(e) => setEditItem((prev) => (prev ? { ...prev, supplier: e.target.value } : prev))} placeholder="Supplier" />
+              <input className="h-10 rounded-md border border-slate-300 px-3 text-sm" value={editItem.location} onChange={(e) => setEditItem((prev) => (prev ? { ...prev, location: e.target.value } : prev))} placeholder="Location" />
+              <textarea className="min-h-24 rounded-md border border-slate-300 p-3 text-sm md:col-span-2" value={editItem.description ?? ''} onChange={(e) => setEditItem((prev) => (prev ? { ...prev, description: e.target.value } : prev))} placeholder="Description" />
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setEditItem(null)}>
+                Cancel
+              </Button>
+              <Button type="button" disabled={savingEdit} onClick={() => void handleSaveEdit()}>
+                {savingEdit ? 'Saving...' : 'Save changes'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {codePreview ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-lg font-semibold text-slate-900">{codePreview.title}</p>
+                <p className="text-sm text-slate-600">SKU: {codePreview.sku}</p>
+                <p className="break-all text-xs text-slate-500">Value: {codePreview.value}</p>
+              </div>
+              <Button type="button" variant="outline" onClick={() => setCodePreview(null)}>
+                Close
+              </Button>
+            </div>
+            <div className="flex items-center justify-center rounded-lg border border-slate-200 bg-slate-50 p-6">
+              <img
+                src={codePreview.imageUrl}
+                alt={codePreview.type === 'qr' ? 'QR Preview' : 'Barcode Preview'}
+                className={codePreview.type === 'qr' ? 'h-56 w-56 object-contain' : 'h-28 w-full max-w-xl object-contain'}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </Card>
   )
 }

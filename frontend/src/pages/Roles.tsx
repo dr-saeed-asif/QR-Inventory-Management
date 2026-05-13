@@ -14,19 +14,21 @@ import { RolesTable } from '@/components/roles/Roles-table'
 type RoleSortKey = 'name' | 'permissions' | 'createdAt'
 type SortState = { key: RoleSortKey; direction: 'asc' | 'desc' }
 type EditorState = { mode: 'create' | 'edit'; id?: string; name: string; permissions: string[] }
-type MatrixAction = 'create' | 'edit' | 'delete' | 'view'
+type MatrixAction = 'create' | 'edit' | 'delete' | 'view' | 'export'
 
 const matrixActions: Array<{ key: MatrixAction; label: string }> = [
   { key: 'create', label: 'Create' },
   { key: 'edit', label: 'Edit' },
   { key: 'delete', label: 'Delete' },
   { key: 'view', label: 'View' },
+  { key: 'export', label: 'Export' },
 ]
 
 const toMatrixAction = (permission: string): MatrixAction | null => {
   if (permission.endsWith('.create') || permission.endsWith('.import')) return 'create'
   if (permission.endsWith('.update') || permission.endsWith('.manage') || permission.endsWith('.write')) return 'edit'
   if (permission.endsWith('.delete')) return 'delete'
+  if (permission.endsWith('.export')) return 'export'
   if (permission.endsWith('.read') || permission.includes('.timeline.read')) return 'view'
   return null
 }
@@ -42,6 +44,9 @@ const sortRoles = (rows: AdminRoleRow[], sort: SortState) =>
 const getErrorMessage = (err: unknown, fallback: string) => {
   if (typeof err === 'object' && err !== null && 'response' in err) {
     const response = (err as { response?: { data?: { message?: string } } }).response
+    if ((err as { response?: { status?: number } }).response?.status === 403) {
+      return 'You do not have permission to access this section.'
+    }
     if (response?.data?.message) return response.data.message
   }
   if (err instanceof Error && err.message) return err.message
@@ -66,8 +71,18 @@ export const RolesPage = () => {
   const [perPage, setPerPage] = useState(10)
   const [viewMode, setViewMode] = useState<'list' | 'create' | 'edit'>('list')
   const [editor, setEditor] = useState<EditorState>(emptyEditorState())
+  const canView = currentUserRole === 'ADMIN'
+  const canCreate = currentUserRole === 'ADMIN'
+  const canEdit = currentUserRole === 'ADMIN'
+  const canDelete = currentUserRole === 'ADMIN'
 
   const loadRoles = async () => {
+    if (!canView) {
+      setLoading(false)
+      setError('You do not have permission to access this section.')
+      return
+    }
+
     setLoading(true)
     setError(null)
     try {
@@ -81,7 +96,7 @@ export const RolesPage = () => {
 
   useEffect(() => {
     void loadRoles()
-  }, [])
+  }, [canView])
 
   useEffect(() => {
     if (location.pathname.endsWith('/create')) {
@@ -116,7 +131,7 @@ export const RolesPage = () => {
       const [group] = permission.split('.')
       const action = toMatrixAction(permission)
       if (!action) continue
-      if (!groups.has(group)) groups.set(group, { create: [], edit: [], delete: [], view: [] })
+      if (!groups.has(group)) groups.set(group, { create: [], edit: [], delete: [], view: [], export: [] })
       groups.get(group)?.[action].push(permission)
     }
     const preferredOrder = ['items', 'categories', 'qr', 'reports', 'scan', 'stock']
@@ -130,14 +145,16 @@ export const RolesPage = () => {
       .map(([moduleKey, actions]) => ({
         moduleKey,
         label: toModuleLabel(moduleKey),
-        actions: { create: actions.create.sort(), edit: actions.edit.sort(), delete: actions.delete.sort(), view: actions.view.sort() },
+        actions: {
+          create: actions.create.sort(),
+          edit: actions.edit.sort(),
+          delete: actions.delete.sort(),
+          view: actions.view.sort(),
+          export: actions.export.sort(),
+        },
       }))
   }, [availablePermissions])
 
-  const canView = currentUserRole === 'ADMIN'
-  const canCreate = currentUserRole === 'ADMIN'
-  const canEdit = currentUserRole === 'ADMIN'
-  const canDelete = currentUserRole === 'ADMIN'
   const actionColumns = useMemo(
     () =>
       matrixActions.map((action) => ({

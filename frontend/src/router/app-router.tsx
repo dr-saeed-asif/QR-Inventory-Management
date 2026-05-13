@@ -23,7 +23,7 @@ const SAFE_FALLBACK_ROUTE = '/admin/settings'
 const RequirePermission = ({ permission, children }: { permission: Permission; children: ReactElement }) => {
   const user = useAuthStore((state) => state.user)
   if (!user) return <Navigate to="/login" replace />
-  if (!hasPermission(user.role, permission)) {
+  if (!hasPermission(user.role, permission, user.permissions)) {
     if (permission === 'settings.read') return <Navigate to="/login" replace />
     return <Navigate to={SAFE_FALLBACK_ROUTE} replace />
   }

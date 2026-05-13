@@ -4,6 +4,10 @@ import type { InventoryItem } from '@/types'
 
 interface InventoryTableProps {
   items: InventoryItem[]
+  canQrRead: boolean
+  canQrExport: boolean
+  canUpdate: boolean
+  canDelete: boolean
   page: number
   total: number
   onPrevPage: () => void
@@ -19,6 +23,10 @@ interface InventoryTableProps {
 
 export const InventoryTable = ({
   items,
+  canQrRead,
+  canQrExport,
+  canUpdate,
+  canDelete,
   page,
   total,
   onPrevPage,
@@ -61,15 +69,23 @@ export const InventoryTable = ({
                 <td className="px-3 py-3">{item.expiryDate ? new Date(item.expiryDate).toLocaleDateString() : '-'}</td>
                 <td className="px-3 py-3">{item.location}</td>
                 <td className="space-x-1 whitespace-nowrap px-3 py-3">
-                  <Button type="button" variant="outline" onClick={() => onShowQr(item)}>Show QR</Button>
-                  <Button type="button" variant="outline" onClick={() => onShowBarcode(item)}>Show Barcode</Button>
+                  {canQrRead ? (
+                    <>
+                      <Button type="button" variant="outline" onClick={() => onShowQr(item)}>Show QR</Button>
+                      <Button type="button" variant="outline" onClick={() => onShowBarcode(item)}>Show Barcode</Button>
+                    </>
+                  ) : null}
                 </td>
                 <td className="space-x-1 whitespace-nowrap px-3 py-3">
-                  <Button type="button" variant="outline" onClick={() => onDownloadQr(item)}>Download QR</Button>
-                  <Button type="button" variant="outline" onClick={() => onDownloadBarcode(item)}>Download Barcode</Button>
+                  {canQrExport ? (
+                    <>
+                      <Button type="button" variant="outline" onClick={() => onDownloadQr(item)}>Download QR</Button>
+                      <Button type="button" variant="outline" onClick={() => onDownloadBarcode(item)}>Download Barcode</Button>
+                    </>
+                  ) : null}
                   <Button type="button" variant="default" onClick={() => onView(item)}>View</Button>
-                  <Button type="button" variant="contained" onClick={() => onEdit(item)}>Edit</Button>
-                  <Button type="button" variant="destructive" onClick={() => onDelete(item)}>Delete</Button>
+                  {canUpdate ? <Button type="button" variant="contained" onClick={() => onEdit(item)}>Edit</Button> : null}
+                  {canDelete ? <Button type="button" variant="destructive" onClick={() => onDelete(item)}>Delete</Button> : null}
                 </td>
               </tr>
             </Fragment>
