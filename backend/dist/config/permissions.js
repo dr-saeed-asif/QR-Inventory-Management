@@ -29,6 +29,7 @@ exports.permissionKeys = [
     'roles.update',
     'roles.delete',
     'settings.read',
+    'ai.chat',
 ];
 exports.rolePermissions = {
     ADMIN: new Set(exports.permissionKeys),
@@ -51,6 +52,7 @@ exports.rolePermissions = {
         'alerts.read',
         'alerts.manage',
         'settings.read',
+        'ai.chat',
     ]),
     USER: new Set([
         'dashboard.read',
