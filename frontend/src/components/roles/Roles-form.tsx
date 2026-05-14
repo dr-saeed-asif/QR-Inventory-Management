@@ -43,22 +43,38 @@ export const RolesForm = ({
     <div>
       <p className="mb-3 text-sm font-semibold text-slate-700">Permissions</p>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        {actionColumns.map((column) => (
-          <div key={column.key} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h3 className="mb-3 text-base font-semibold text-slate-800">{column.label}</h3>
-            <div className="max-h-80 space-y-2 overflow-auto pr-1">
-              {column.entries.map((entry) => {
-                const checked = entry.keys.every((permission) => permissions.includes(permission))
-                return (
-                  <label key={`${column.key}-${entry.moduleLabel}`} className="flex items-center gap-2 text-sm text-slate-700">
-                    <input type="checkbox" checked={checked} onChange={() => onToggleActionPermissions(entry.keys)} />
-                    <span className="truncate">{entry.moduleLabel}</span>
-                  </label>
-                )
-              })}
+        {actionColumns.map((column) => {
+          const allColumnKeys = Array.from(new Set(column.entries.flatMap((entry) => entry.keys)))
+          const columnSelectAllChecked =
+            allColumnKeys.length > 0 && allColumnKeys.every((permission) => permissions.includes(permission))
+
+          return (
+            <div key={column.key} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h3 className="mb-2 text-base font-semibold text-slate-800">{column.label}</h3>
+              {allColumnKeys.length > 0 ? (
+                <label className="mb-3 flex cursor-pointer items-center gap-2 border-b border-slate-100 pb-3 text-sm font-medium text-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={columnSelectAllChecked}
+                    onChange={() => onToggleActionPermissions(allColumnKeys)}
+                  />
+                  <span>Select all</span>
+                </label>
+              ) : null}
+              <div className="max-h-80 space-y-2 overflow-auto pr-1">
+                {column.entries.map((entry) => {
+                  const checked = entry.keys.every((permission) => permissions.includes(permission))
+                  return (
+                    <label key={`${column.key}-${entry.moduleLabel}`} className="flex items-center gap-2 text-sm text-slate-700">
+                      <input type="checkbox" checked={checked} onChange={() => onToggleActionPermissions(entry.keys)} />
+                      <span className="truncate">{entry.moduleLabel}</span>
+                    </label>
+                  )
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
 

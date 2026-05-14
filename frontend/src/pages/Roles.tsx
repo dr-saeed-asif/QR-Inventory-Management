@@ -25,6 +25,7 @@ const matrixActions: Array<{ key: MatrixAction; label: string }> = [
 ]
 
 const toMatrixAction = (permission: string): MatrixAction | null => {
+  if (permission === 'ai.chat') return 'view'
   if (permission.endsWith('.create') || permission.endsWith('.import')) return 'create'
   if (permission.endsWith('.update') || permission.endsWith('.manage') || permission.endsWith('.write')) return 'edit'
   if (permission.endsWith('.delete')) return 'delete'
@@ -134,7 +135,7 @@ export const RolesPage = () => {
       if (!groups.has(group)) groups.set(group, { create: [], edit: [], delete: [], view: [], export: [] })
       groups.get(group)?.[action].push(permission)
     }
-    const preferredOrder = ['items', 'categories', 'qr', 'reports', 'scan', 'stock']
+    const preferredOrder = ['ai', 'items', 'categories', 'qr', 'reports', 'scan', 'stock']
     return Array.from(groups.entries())
       .sort(([left], [right]) => {
         const leftOrder = preferredOrder.indexOf(left)

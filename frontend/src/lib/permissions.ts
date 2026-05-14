@@ -28,6 +28,7 @@ export const permissionKeys = [
   'roles.update',
   'roles.delete',
   'settings.read',
+  'ai.chat',
 ] as const
 
 export type Permission = (typeof permissionKeys)[number]
@@ -53,6 +54,7 @@ const rolePermissions: Record<UserRole, Set<Permission>> = {
     'alerts.read',
     'alerts.manage',
     'settings.read',
+    'ai.chat',
   ]),
   USER: new Set<Permission>([
     'dashboard.read',

@@ -59,6 +59,7 @@ export const AppShell = () => {
   const resizeStartXRef = useRef(0)
   const resizeStartWidthRef = useRef(assistantWidth)
   const canReadAlerts = hasPermission(user?.role, 'alerts.read', user?.permissions)
+  const canUseAi = hasPermission(user?.role, 'ai.chat', user?.permissions)
   const visibleLinks = links.filter((link) =>
     link.permission ? hasPermission(user?.role, link.permission, user?.permissions) : true,
   )
@@ -111,6 +112,10 @@ export const AppShell = () => {
       window.clearInterval(interval)
     }
   }, [canReadAlerts])
+
+  useEffect(() => {
+    if (!canUseAi) setAssistantOpen(false)
+  }, [canUseAi])
 
   useEffect(() => {
     if (!isResizingAssistant) return
@@ -286,10 +291,12 @@ export const AppShell = () => {
                   Urdu
                 </button>
               </div>
-              <Button variant="outline" onClick={() => setAssistantOpen((current) => !current)}>
-                <Bot className="h-4 w-4" />
-                <span>{assistantOpen ? 'Hide AI' : 'Open AI'}</span>
-              </Button>
+              {canUseAi ? (
+                <Button variant="outline" onClick={() => setAssistantOpen((current) => !current)}>
+                  <Bot className="h-4 w-4" />
+                  <span>{assistantOpen ? 'Hide AI' : 'Open AI'}</span>
+                </Button>
+              ) : null}
           {canReadAlerts ? (
               <Button variant="outline" className="relative" onClick={() => navigate('/admin/alerts')}>
                 <Bell className="h-4 w-4" />
@@ -308,7 +315,7 @@ export const AppShell = () => {
             <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
               <Outlet />
             </div>
-            {assistantOpen ? (
+            {assistantOpen && canUseAi ? (
               <>
                 <div
                   role="separator"
