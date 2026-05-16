@@ -11,8 +11,10 @@
     "prisma:strip-sql-dump": "node prisma/scripts/strip-mysql-fractional-seconds.cjs",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
+    "db:check": "tsx src/scripts/check-db.ts",
     "admin:seed": "tsx src/scripts/seed-admin.ts",
-    "stock:seed": "tsx src/scripts/seed-stock.ts"
+    "stock:seed": "tsx src/scripts/seed-stock.ts",
+    "commerce:seed": "tsx src/scripts/seed-commerce.ts"
   },
   "keywords": [],
   "author": "",

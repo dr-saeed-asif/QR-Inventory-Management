@@ -11,6 +11,9 @@ const moduleLabelMap: Record<string, string> = {
   roles: 'Roles',
   settings: 'Settings',
   ai: 'AI Assistant',
+  parties: 'Parties',
+  sales: 'Sales',
+  purchases: 'Purchases',
 }
 
 export const getPermissionActionLabel = (permission: string): string | null => {

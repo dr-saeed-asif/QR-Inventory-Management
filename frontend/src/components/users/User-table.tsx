@@ -101,7 +101,7 @@ export const UserTable = ({
       </div>
     ) : (
       <>
-        <div className="overflow-x-auto">
+        <div className="max-h-[60vh] overflow-y-auto overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200 text-left">
             <thead className="bg-slate-50/80">
               <tr>

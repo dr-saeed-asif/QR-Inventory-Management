@@ -35,6 +35,7 @@ export const InventoryListPage = () => {
   const [total, setTotal] = useState(0)
   const [importFile, setImportFile] = useState<File | null>(null)
   const [importing, setImporting] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [viewItem, setViewItem] = useState<InventoryItem | null>(null)
   const [editItem, setEditItem] = useState<InventoryItem | null>(null)
   const [savingEdit, setSavingEdit] = useState(false)
@@ -47,6 +48,9 @@ export const InventoryListPage = () => {
   const canDeleteItem = hasPermission(user?.role, 'items.delete', user?.permissions)
   const canReadQr = hasPermission(user?.role, 'qr.read', user?.permissions)
   const canExportQr = hasPermission(user?.role, 'qr.export', user?.permissions)
+  const canExportInventory = hasPermission(user?.role, 'reports.export', user?.permissions)
+
+  const formatDateTime = (value?: string) => (value ? new Date(value).toLocaleString() : '-')
 
   const loadItems = (overrides?: Partial<{ search: string; category: string; location: string; sortBy: string; sortOrder: 'asc' | 'desc'; page: number; lowStockOnly: boolean; expiredOnly: boolean }>) => {
     const qSearch = overrides?.search ?? search
@@ -180,13 +184,38 @@ export const InventoryListPage = () => {
     setImporting(true)
     try {
       const result = await inventoryService.importFile(importFile)
-      toast({ title: 'Import completed', description: `Created: ${result.created}, Updated: ${result.updated}` })
       setImportFile(null)
-      await loadItems()
+      setPage(1)
+      await loadItems({ page: 1 })
+      toast({
+        title: 'Import completed',
+        description: `${result.created} added, ${result.updated} updated (${result.total} rows in file).`,
+      })
     } catch (error) {
       toast({ title: 'Import failed', description: error instanceof Error ? error.message : 'Please check your file format', variant: 'error' })
     } finally {
       setImporting(false)
+    }
+  }
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const blob = await inventoryService.exportExcelFromApi()
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = 'inventory-export.xlsx'
+      anchor.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      toast({
+        title: 'Export failed',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'error',
+      })
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -223,8 +252,10 @@ export const InventoryListPage = () => {
         <InventoryForm
           importFile={importFile}
           importing={importing}
+          exporting={exporting}
           canCreate={canCreateItem}
           canImport={canImportItem}
+          canExport={canExportInventory}
           search={search}
           category={category}
           location={location}
@@ -232,6 +263,7 @@ export const InventoryListPage = () => {
           expiredOnly={expiredOnly}
           onImportFileChange={setImportFile}
           onImport={() => void handleImport()}
+          onExport={() => void handleExport()}
           onAddItem={() => navigate('/admin/add-item')}
           onSearchChange={setSearch}
           onCategoryChange={setCategory}
@@ -249,8 +281,10 @@ export const InventoryListPage = () => {
       <InventoryForm
         importFile={importFile}
         importing={importing}
-          canCreate={canCreateItem}
-          canImport={canImportItem}
+        exporting={exporting}
+        canCreate={canCreateItem}
+        canImport={canImportItem}
+        canExport={canExportInventory}
         search={search}
         category={category}
         location={location}
@@ -258,6 +292,7 @@ export const InventoryListPage = () => {
         expiredOnly={expiredOnly}
         onImportFileChange={setImportFile}
         onImport={() => void handleImport()}
+        onExport={() => void handleExport()}
         onAddItem={() => navigate('/admin/add-item')}
         onSearchChange={setSearch}
         onCategoryChange={setCategory}
@@ -302,6 +337,8 @@ export const InventoryListPage = () => {
               <p><span className="font-medium">Reserved:</span> {viewItem.reservedQty}</p>
               <p><span className="font-medium">Available:</span> {viewItem.availableQty}</p>
               <p><span className="font-medium">Price:</span> {viewItem.price}</p>
+              <p><span className="font-medium">Created At:</span> {formatDateTime(viewItem.createdAt)}</p>
+              <p><span className="font-medium">Updated At:</span> {formatDateTime(viewItem.updatedAt)}</p>
               <p className="md:col-span-2"><span className="font-medium">Description:</span> {viewItem.description || '-'}</p>
             </div>
           </div>

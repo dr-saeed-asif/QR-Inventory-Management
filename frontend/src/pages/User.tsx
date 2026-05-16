@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { useToast } from '@/hooks/use-toast'
 import { summarizePermissionActions } from '@/lib/permission-display'
 import { useAuthStore } from '@/store/auth-store'
+import { hasPermission } from '@/lib/permissions'
 import { UserForm } from '@/components/users/User-form'
 import { UserTable } from '@/components/users/User-table'
 
@@ -59,7 +60,7 @@ export const UsersPage = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const { id: userIdParam } = useParams()
-  const currentUserRole = useAuthStore((state) => state.user?.role)
+  const user = useAuthStore((state) => state.user)
   const [users, setUsers] = useState<AdminUserRow[]>([])
   const [roleOptions, setRoleOptions] = useState<string[]>(['ADMIN', 'MANAGER', 'USER'])
   const [loading, setLoading] = useState(true)
@@ -70,10 +71,10 @@ export const UsersPage = () => {
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(10)
   const [editor, setEditor] = useState<EditorState>(emptyEditorState)
-  const canView = currentUserRole === 'ADMIN'
-  const canCreate = currentUserRole === 'ADMIN'
-  const canEdit = currentUserRole === 'ADMIN'
-  const canDelete = currentUserRole === 'ADMIN'
+  const canView = hasPermission(user?.role, 'users.read', user?.permissions)
+  const canCreate = hasPermission(user?.role, 'users.create', user?.permissions)
+  const canEdit = hasPermission(user?.role, 'users.update', user?.permissions)
+  const canDelete = hasPermission(user?.role, 'users.delete', user?.permissions)
 
   const loadUsers = async () => {
     if (!canView) {

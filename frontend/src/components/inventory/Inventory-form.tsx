@@ -6,8 +6,10 @@ import { useUiStore } from '@/store/ui-store'
 interface InventoryFormProps {
   importFile: File | null
   importing: boolean
+  exporting: boolean
   canCreate: boolean
   canImport: boolean
+  canExport: boolean
   search: string
   category: string
   location: string
@@ -15,6 +17,7 @@ interface InventoryFormProps {
   expiredOnly: boolean
   onImportFileChange: (file: File | null) => void
   onImport: () => void
+  onExport: () => void
   onAddItem: () => void
   onSearchChange: (value: string) => void
   onCategoryChange: (value: string) => void
@@ -25,8 +28,10 @@ interface InventoryFormProps {
 
 export const InventoryForm = ({
   importing,
+  exporting,
   canCreate,
   canImport,
+  canExport,
   search,
   category,
   location,
@@ -34,6 +39,7 @@ export const InventoryForm = ({
   expiredOnly,
   onImportFileChange,
   onImport,
+  onExport,
   onAddItem,
   onSearchChange,
   onCategoryChange,
@@ -61,6 +67,11 @@ export const InventoryForm = ({
                 {importing ? t.importing : t.importCsv}
               </Button>
             </>
+          ) : null}
+          {canExport ? (
+            <Button type="button" variant="outline" disabled={exporting} onClick={onExport}>
+              {exporting ? t.exporting : t.exportCsvExcel}
+            </Button>
           ) : null}
           {canCreate ? (
             <Button type="button" onClick={onAddItem}>

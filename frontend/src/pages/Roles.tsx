@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { adminService, type AdminRoleInput, type AdminRoleRow } from '@/services/admin.service'
+import { authService } from '@/services/auth.service'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { useToast } from '@/hooks/use-toast'
-import { permissionKeys } from '@/lib/permissions'
+import { hasPermission, permissionKeys } from '@/lib/permissions'
 import { toModuleLabel } from '@/lib/permission-display'
 import { useAuthStore } from '@/store/auth-store'
 import { RolesForm } from '@/components/roles/Roles-form'
@@ -61,7 +62,8 @@ export const RolesPage = () => {
   const navigate = useNavigate()
   const { id: roleIdParam } = useParams()
   const location = useLocation()
-  const currentUserRole = useAuthStore((state) => state.user?.role)
+  const user = useAuthStore((state) => state.user)
+  const setAuth = useAuthStore((state) => state.setAuth)
   const [roles, setRoles] = useState<AdminRoleRow[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -72,10 +74,10 @@ export const RolesPage = () => {
   const [perPage, setPerPage] = useState(10)
   const [viewMode, setViewMode] = useState<'list' | 'create' | 'edit'>('list')
   const [editor, setEditor] = useState<EditorState>(emptyEditorState())
-  const canView = currentUserRole === 'ADMIN'
-  const canCreate = currentUserRole === 'ADMIN'
-  const canEdit = currentUserRole === 'ADMIN'
-  const canDelete = currentUserRole === 'ADMIN'
+  const canView = hasPermission(user?.role, 'roles.read', user?.permissions)
+  const canCreate = hasPermission(user?.role, 'roles.create', user?.permissions)
+  const canEdit = hasPermission(user?.role, 'roles.update', user?.permissions)
+  const canDelete = hasPermission(user?.role, 'roles.delete', user?.permissions)
 
   const loadRoles = async () => {
     if (!canView) {
@@ -191,13 +193,21 @@ export const RolesPage = () => {
     setSaving(true)
     try {
       if (editor.mode === 'create') {
-        const created = await adminService.createRole(payload)
-        setRoles((current) => [created, ...current])
-        toast({ title: 'Role created', description: `${created.name} was created.` })
+        await adminService.createRole(payload)
+        toast({ title: 'Role created', description: `${payload.name} was created.` })
       } else if (editor.id) {
-        const updated = await adminService.updateRole(editor.id, payload)
-        setRoles((current) => current.map((role) => (role.id === updated.id ? updated : role)))
-        toast({ title: 'Role updated', description: `${updated.name} was updated.` })
+        await adminService.updateRole(editor.id, payload)
+        toast({
+          title: 'Role updated',
+          description: `${payload.name} permissions saved. Other users with this role should log in again.`,
+        })
+      }
+      await loadRoles()
+      try {
+        const session = await authService.refreshSession()
+        setAuth(session.token, session.user)
+      } catch {
+        // Keep saved role even if session refresh fails.
       }
       closeForm()
     } catch (err) {

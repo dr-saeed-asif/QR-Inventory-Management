@@ -29,6 +29,14 @@ export const permissionKeys = [
   'roles.delete',
   'settings.read',
   'ai.chat',
+  'parties.read',
+  'parties.manage',
+  'sales.read',
+  'sales.create',
+  'sales.delete',
+  'purchases.read',
+  'purchases.create',
+  'purchases.delete',
 ] as const
 
 export type Permission = (typeof permissionKeys)[number]
@@ -55,6 +63,14 @@ const rolePermissions: Record<UserRole, Set<Permission>> = {
     'alerts.manage',
     'settings.read',
     'ai.chat',
+    'parties.read',
+    'parties.manage',
+    'sales.read',
+    'sales.create',
+    'sales.delete',
+    'purchases.read',
+    'purchases.create',
+    'purchases.delete',
   ]),
   USER: new Set<Permission>([
     'dashboard.read',
@@ -67,6 +83,9 @@ const rolePermissions: Record<UserRole, Set<Permission>> = {
     'reports.read',
     'alerts.read',
     'settings.read',
+    'parties.read',
+    'sales.read',
+    'purchases.read',
   ]),
 }
 
@@ -78,5 +97,5 @@ export const hasPermission = (
   if (Array.isArray(grantedPermissions) && grantedPermissions.length > 0) {
     return grantedPermissions.includes(permission)
   }
-  return role ? rolePermissions[role].has(permission) : false
+  return role ? rolePermissions[role]?.has(permission) ?? false : false
 }

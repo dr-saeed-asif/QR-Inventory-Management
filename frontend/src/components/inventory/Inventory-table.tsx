@@ -38,10 +38,13 @@ export const InventoryTable = ({
   onView,
   onEdit,
   onDelete,
-}: InventoryTableProps) => (
+}: InventoryTableProps) => {
+  const formatDateTime = (value?: string) => (value ? new Date(value).toLocaleString() : '-')
+
+  return (
   <>
-    <div className="max-h-[60vh] overflow-x-auto pb-2">
-      <table className="min-w-[1450px] table-fixed text-left text-sm">
+    <div className="max-h-[60vh] overflow-y-auto overflow-x-auto pb-2 pr-1">
+      <table className="min-w-[1750px] table-fixed text-left text-sm">
         <thead>
           <tr className="border-b">
             <th className="sticky top-0 z-10 w-[160px] whitespace-nowrap bg-white px-3 py-2">Name</th>
@@ -52,6 +55,8 @@ export const InventoryTable = ({
             <th className="sticky top-0 z-10 w-[100px] whitespace-nowrap bg-white px-3 py-2">Available</th>
             <th className="sticky top-0 z-10 w-[130px] whitespace-nowrap bg-white px-3 py-2">Expiry</th>
             <th className="sticky top-0 z-10 w-[160px] whitespace-nowrap bg-white px-3 py-2">Location</th>
+            <th className="sticky top-0 z-10 w-[160px] whitespace-nowrap bg-white px-3 py-2">Created At</th>
+            <th className="sticky top-0 z-10 w-[160px] whitespace-nowrap bg-white px-3 py-2">Updated At</th>
             <th className="sticky top-0 z-10 w-[220px] whitespace-nowrap bg-white px-3 py-2">Codes</th>
             <th className="sticky top-0 z-10 w-[340px] whitespace-nowrap bg-white px-3 py-2">Actions</th>
           </tr>
@@ -68,6 +73,8 @@ export const InventoryTable = ({
                 <td className="px-3 py-3">{item.availableQty}</td>
                 <td className="px-3 py-3">{item.expiryDate ? new Date(item.expiryDate).toLocaleDateString() : '-'}</td>
                 <td className="px-3 py-3">{item.location}</td>
+                <td className="px-3 py-3">{formatDateTime(item.createdAt)}</td>
+                <td className="px-3 py-3">{formatDateTime(item.updatedAt)}</td>
                 <td className="space-x-1 whitespace-nowrap px-3 py-3">
                   {canQrRead ? (
                     <>
@@ -101,4 +108,5 @@ export const InventoryTable = ({
       </div>
     </div>
   </>
-)
+  )
+}

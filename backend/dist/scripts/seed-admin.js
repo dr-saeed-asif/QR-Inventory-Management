@@ -32,6 +32,13 @@ const run = async () => {
 };
 run()
     .catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('P1000') || message.includes('Authentication failed')) {
+        console.error('\nPostgreSQL login failed.');
+        console.error('Update DATABASE_URL in backend/.env with your real username and password.');
+        console.error('Example: postgresql://postgres:YOUR_PASSWORD@127.0.0.1:5432/qr_inventory?schema=public');
+        console.error('If the password has special characters (@, #, etc.), URL-encode them (e.g. @ → %40).\n');
+    }
     console.error(error);
     process.exit(1);
 })

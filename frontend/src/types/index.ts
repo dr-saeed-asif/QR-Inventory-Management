@@ -94,6 +94,7 @@ export interface InventoryItem {
   variants?: ItemVariant[]
   batches?: ItemBatch[]
   createdAt: string
+  updatedAt: string
 }
 
 export interface InventoryFilters {
@@ -113,4 +114,59 @@ export interface PaginatedResponse<T> {
   total: number
   page: number
   pageSize: number
+}
+
+export type PartyType = 'CUSTOMER' | 'SUPPLIER' | 'BOTH'
+
+export interface Party {
+  id: string
+  name: string
+  phone?: string | null
+  email?: string | null
+  address?: string | null
+  type: PartyType
+  salesCount?: number
+  purchasesCount?: number
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface CommerceLine {
+  id?: string
+  itemId: string
+  itemName?: string
+  itemSku?: string
+  quantity: number
+  unitPrice: number
+  lineTotal?: number
+}
+
+export interface SaleRecord {
+  id: string
+  invoiceNo: string
+  partyId?: string | null
+  party?: { id: string; name: string; phone?: string | null; type: PartyType } | null
+  status: string
+  saleDate: string
+  subtotal: number
+  discount: number
+  total: number
+  notes?: string | null
+  lines: CommerceLine[]
+  createdAt: string
+}
+
+export interface PurchaseRecord {
+  id: string
+  invoiceNo: string
+  partyId?: string | null
+  party?: { id: string; name: string; phone?: string | null; type: PartyType } | null
+  status: string
+  purchaseDate: string
+  subtotal: number
+  discount: number
+  total: number
+  notes?: string | null
+  lines: CommerceLine[]
+  createdAt: string
 }

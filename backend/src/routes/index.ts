@@ -13,6 +13,9 @@ import adminRoutes from './admin.routes'
 import graphqlRoutes from './graphql.routes'
 import architectureRoutes from './architecture.routes'
 import aiRoutes from './ai.routes'
+import partyRoutes from './party.routes'
+import saleRoutes from './sale.routes'
+import purchaseRoutes from './purchase.routes'
 
 const router = Router()
 
@@ -30,5 +33,8 @@ router.use('/admin', adminRoutes)
 router.use('/graphql', graphqlRoutes)
 router.use('/architecture', architectureRoutes)
 router.use('/ai', aiRoutes)
+router.use('/parties', partyRoutes)
+router.use('/sales', saleRoutes)
+router.use('/purchases', purchaseRoutes)
 
 export default router

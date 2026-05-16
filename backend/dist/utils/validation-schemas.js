@@ -30,19 +30,21 @@ exports.locationSchema = zod_1.z.object({
     rack: zod_1.z.string().min(1),
     bin: zod_1.z.string().min(1),
 });
-exports.itemSchema = zod_1.z.object({
-    name: zod_1.z.string().min(2),
-    sku: zod_1.z.string().min(2),
+const generateItemSku = () => `${Date.now()}${Math.floor(100 + Math.random() * 900)}`;
+exports.itemSchema = zod_1.z
+    .object({
+    name: zod_1.z.string().trim().min(2),
+    sku: zod_1.z.string().min(2).optional(),
     categoryId: zod_1.z.uuid(),
     locationId: zod_1.z.uuid().optional(),
     categoryIds: zod_1.z.array(zod_1.z.uuid()).optional(),
     tags: zod_1.z.array(zod_1.z.string().min(1)).optional(),
-    quantity: zod_1.z.number().int().min(0),
+    quantity: zod_1.z.number().int().min(0).optional(),
     reservedQty: zod_1.z.number().int().min(0).optional(),
     expiryDate: dateStringSchema.optional(),
-    price: zod_1.z.number().min(0),
-    supplier: zod_1.z.string().min(2),
-    location: zod_1.z.string().min(2),
+    price: zod_1.z.number().positive(),
+    supplier: zod_1.z.string().optional(),
+    location: zod_1.z.string().optional(),
     description: zod_1.z.string().optional(),
     lowStockAt: zod_1.z.number().int().min(0).optional(),
     batches: zod_1.z
@@ -65,8 +67,52 @@ exports.itemSchema = zod_1.z.object({
         price: zod_1.z.number().min(0).optional(),
     }))
         .optional(),
-});
-exports.itemUpdateSchema = exports.itemSchema.partial();
+})
+    .transform((data) => ({
+    ...data,
+    sku: data.sku?.trim() || generateItemSku(),
+    quantity: data.quantity ?? 0,
+    supplier: data.supplier?.trim() || 'General',
+    location: data.location?.trim() || 'General',
+}));
+exports.itemUpdateSchema = zod_1.z
+    .object({
+    name: zod_1.z.string().trim().min(2).optional(),
+    sku: zod_1.z.string().min(2).optional(),
+    categoryId: zod_1.z.uuid().optional(),
+    locationId: zod_1.z.uuid().optional(),
+    categoryIds: zod_1.z.array(zod_1.z.uuid()).optional(),
+    tags: zod_1.z.array(zod_1.z.string().min(1)).optional(),
+    quantity: zod_1.z.number().int().min(0).optional(),
+    reservedQty: zod_1.z.number().int().min(0).optional(),
+    expiryDate: dateStringSchema.optional(),
+    price: zod_1.z.number().min(0).optional(),
+    supplier: zod_1.z.string().optional(),
+    location: zod_1.z.string().optional(),
+    description: zod_1.z.string().optional(),
+    lowStockAt: zod_1.z.number().int().min(0).optional(),
+    batches: zod_1.z
+        .array(zod_1.z.object({
+        batchNumber: zod_1.z.string().min(1),
+        lotNumber: zod_1.z.string().optional(),
+        expiryDate: dateStringSchema.optional(),
+        quantity: zod_1.z.number().int().min(0),
+    }))
+        .optional(),
+    variants: zod_1.z
+        .array(zod_1.z.object({
+        name: zod_1.z.string().optional(),
+        sku: zod_1.z.string().min(2),
+        size: zod_1.z.string().optional(),
+        color: zod_1.z.string().optional(),
+        model: zod_1.z.string().optional(),
+        quantity: zod_1.z.number().int().min(0).default(0),
+        reservedQty: zod_1.z.number().int().min(0).optional(),
+        price: zod_1.z.number().min(0).optional(),
+    }))
+        .optional(),
+})
+    .partial();
 exports.scanSchema = zod_1.z.object({
     qrCode: zod_1.z.string().min(1),
     note: zod_1.z.string().optional(),

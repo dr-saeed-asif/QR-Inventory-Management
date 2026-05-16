@@ -1,11 +1,25 @@
 import { http } from '@/services/http'
-import type { Category } from '@/types'
+import type { Category, PaginatedResponse } from '@/types'
 import type { CategoryInput } from '@/lib/validators'
 
+interface PaginatedApi<T> {
+  data: T[]
+  total: number
+  page: number
+  limit: number
+}
+
 export const categoryService = {
-  list: async () => {
-    const { data } = await http.get<Category[]>('/categories')
-    return data
+  list: async (params?: { page?: number; pageSize?: number }) => {
+    const { data } = await http.get<PaginatedApi<Category>>('/categories', {
+      params: { page: params?.page ?? 1, limit: params?.pageSize ?? 10 },
+    })
+    return {
+      data: data.data,
+      total: data.total,
+      page: data.page,
+      pageSize: data.limit,
+    } as PaginatedResponse<Category>
   },
   create: async (payload: CategoryInput) => {
     const { data } = await http.post<Category>('/categories', payload)

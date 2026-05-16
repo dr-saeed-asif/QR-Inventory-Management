@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Boxes } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { APP_NAME, APP_TAGLINE, appLogo } from '@/lib/branding'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { loginSchema, type LoginInput } from '@/lib/validators'
@@ -88,13 +88,14 @@ export const LoginPage = () => {
             <div className="pointer-events-none absolute -bottom-12 -left-12 h-36 w-36 rounded-full bg-indigo-200/35 blur-2xl" />
 
             <div className="relative mb-8 text-center">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-900 to-slate-700 text-white shadow-lg shadow-slate-900/25 ring-4 ring-white/50 transition-transform duration-300 hover:scale-105 hover:rotate-[-3deg]">
-                <Boxes className="h-7 w-7" strokeWidth={1.75} />
+              <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-lg shadow-slate-900/15 ring-4 ring-white/60 transition-transform duration-300 hover:scale-105">
+                <img src={appLogo} alt={`${APP_NAME} logo`} className="h-full w-full object-contain p-1" />
               </div>
               <h1 className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-600 bg-clip-text text-2xl font-bold tracking-tight text-transparent">
-                Welcome back
+                {APP_NAME}
               </h1>
-              <p className="mt-1.5 text-sm text-slate-500">Sign in to QR Inventory Management</p>
+              <p className="mt-1.5 text-sm text-slate-500">{APP_TAGLINE}</p>
+              <p className="mt-1 text-xs text-slate-400">Sign in to continue</p>
             </div>
 
             <form

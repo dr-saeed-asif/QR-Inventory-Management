@@ -30,11 +30,19 @@ export const authorize =
 export const authorizePermission =
   (permission: Permission) =>
   (req: Request, _res: Response, next: NextFunction) => {
-    const userPermissions = req.user?.permissions ?? []
-    const allowedByTokenPermissions = userPermissions.includes(permission)
-    const allowedByDefaultRole = req.user ? hasPermission(req.user.role, permission) : false
+    if (!req.user) {
+      return next(new ApiError(403, 'Insufficient permissions'))
+    }
 
-    if (!req.user || (!allowedByTokenPermissions && !allowedByDefaultRole)) {
+    const userPermissions = req.user.permissions
+    if (Array.isArray(userPermissions) && userPermissions.length > 0) {
+      if (!userPermissions.includes(permission)) {
+        return next(new ApiError(403, 'Insufficient permissions'))
+      }
+      return next()
+    }
+
+    if (!hasPermission(req.user.role, permission)) {
       return next(new ApiError(403, 'Insufficient permissions'))
     }
     next()

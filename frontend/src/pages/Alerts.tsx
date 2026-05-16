@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
+import { ScrollableList } from '@/components/ui/scrollable-list'
 import { hasPermission } from '@/lib/permissions'
 import { useAuthStore } from '@/store/auth-store'
 
@@ -89,7 +90,7 @@ export const AlertsPage = () => {
         </div>
       </div>
       {alerts.length === 0 ? <EmptyState title="No active alerts" subtitle="When inventory crosses a threshold, alerts appear here." /> : (
-        <div className="space-y-3">
+        <ScrollableList className="space-y-3">
           {alerts.map((alert) => (
             <Card key={alert.id} className={cn('border-l-4', severityStyles[alert.severity])}>
               <div className="flex items-start justify-between gap-3">
@@ -98,7 +99,7 @@ export const AlertsPage = () => {
               </div>
             </Card>
           ))}
-        </div>
+        </ScrollableList>
       )}
       {unreadAlerts.length > 0 ? <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">{unreadAlerts.length} unread alert(s).</div> : null}
     </div>

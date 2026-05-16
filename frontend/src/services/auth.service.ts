@@ -12,4 +12,9 @@ export const authService = {
     const { data } = await http.post<LoginResponse>('/auth/login', payload)
     return data
   },
+
+  refreshSession: async () => {
+    const { data } = await http.post<LoginResponse>('/auth/refresh')
+    return data
+  },
 }

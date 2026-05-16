@@ -257,7 +257,7 @@ export const itemService = {
     const lowStockIds = lowStockOnly
       ? (
           await prisma.$queryRaw<Array<{ id: string }>>(
-            Prisma.sql`SELECT id FROM Item WHERE quantity <= lowStockAt`,
+            Prisma.sql`SELECT id FROM "Item" WHERE quantity <= "lowStockAt"`,
           )
         ).map((row) => row.id)
       : undefined
@@ -541,15 +541,21 @@ export const itemService = {
   delete: async (id: string, userId?: string) => {
     const existing = await prisma.item.findUnique({ where: { id } })
     if (!existing) throw new ApiError(404, 'Item not found')
-    await prisma.item.delete({ where: { id } })
-    await alertService.resolveItemAlerts(id)
+
+    await prisma.$transaction(async (tx) => {
+      await tx.scanHistory.deleteMany({ where: { itemId: id } })
+      await tx.activityLog.updateMany({ where: { itemId: id }, data: { itemId: null } })
+      await tx.auditTrail.updateMany({ where: { itemId: id }, data: { itemId: null } })
+      await tx.alert.deleteMany({ where: { itemId: id } })
+      await tx.item.delete({ where: { id } })
+    })
+
     await activityService.create({
       action: 'DELETE',
       entityType: 'ITEM',
       entityId: id,
       description: `Item "${existing.name}" deleted`,
       userId,
-      itemId: id,
     })
   },
 }

@@ -194,7 +194,7 @@ exports.itemService = {
         const lowStockOnly = query.lowStock === 'true';
         const now = new Date();
         const lowStockIds = lowStockOnly
-            ? (await prisma_1.prisma.$queryRaw(client_1.Prisma.sql `SELECT id FROM Item WHERE quantity <= lowStockAt`)).map((row) => row.id)
+            ? (await prisma_1.prisma.$queryRaw(client_1.Prisma.sql `SELECT id FROM "Item" WHERE quantity <= "lowStockAt"`)).map((row) => row.id)
             : undefined;
         const rawCategory = (query.categoryId || query.category || '').trim();
         const categoryLooksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(rawCategory);
@@ -463,15 +463,19 @@ exports.itemService = {
         const existing = await prisma_1.prisma.item.findUnique({ where: { id } });
         if (!existing)
             throw new api_error_1.ApiError(404, 'Item not found');
-        await prisma_1.prisma.item.delete({ where: { id } });
-        await alert_service_1.alertService.resolveItemAlerts(id);
+        await prisma_1.prisma.$transaction(async (tx) => {
+            await tx.scanHistory.deleteMany({ where: { itemId: id } });
+            await tx.activityLog.updateMany({ where: { itemId: id }, data: { itemId: null } });
+            await tx.auditTrail.updateMany({ where: { itemId: id }, data: { itemId: null } });
+            await tx.alert.deleteMany({ where: { itemId: id } });
+            await tx.item.delete({ where: { id } });
+        });
         await activity_service_1.activityService.create({
             action: 'DELETE',
             entityType: 'ITEM',
             entityId: id,
             description: `Item "${existing.name}" deleted`,
             userId,
-            itemId: id,
         });
     },
 };

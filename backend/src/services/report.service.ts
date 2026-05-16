@@ -31,6 +31,9 @@ export const reportService = {
         availableQty: Math.max(0, item.quantity - item.reservedQty),
         location: item.location,
         supplier: item.supplier,
+        price: Number(item.price),
+        createdAt: item.createdAt.toISOString(),
+        updatedAt: item.updatedAt.toISOString(),
       })),
       { header: true },
     )
@@ -55,6 +58,8 @@ export const reportService = {
       Location: item.location,
       Supplier: item.supplier,
       Price: Number(item.price),
+      CreatedAt: item.createdAt.toISOString(),
+      UpdatedAt: item.updatedAt.toISOString(),
     }))
 
     const workbook = XLSX.utils.book_new()
@@ -65,10 +70,10 @@ export const reportService = {
 
   lowStock: async () =>
     prisma.$queryRaw`
-      SELECT i.*, c.name as categoryName
-      FROM Item i
-      JOIN Category c ON i.categoryId = c.id
-      WHERE i.quantity <= i.lowStockAt
+      SELECT i.*, c.name as "categoryName"
+      FROM "Item" i
+      JOIN "Category" c ON i."categoryId" = c.id
+      WHERE i.quantity <= i."lowStockAt"
       ORDER BY i.quantity ASC
     `,
 

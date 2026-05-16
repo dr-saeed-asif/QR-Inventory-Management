@@ -10,6 +10,7 @@ import { buildResultBlocks, buildRuleBasedAnswer } from './formatters'
 import { createLlmAnswer } from './llm'
 import { detectIntent, detectSmallTalkIntent, extractDays, isGreetingMessage, shouldUseLlmForAnswer, shouldUseRag } from './intents'
 import type { AuthUser, ChatResult, RagCitation, ToolResult } from './types'
+import type { CategoryRecord } from './tools/types'
 
 const chatInputSchema = z.object({
   message: z.string().min(2).max(2000),
@@ -36,9 +37,11 @@ export const aiService = {
     let usedProvider = 'rule-based'
     let citations: RagCitation[] = []
     const text = message.toLowerCase()
-    let cachedCategories: Awaited<ReturnType<typeof categoryService.list>> | null = null
+    let cachedCategories: CategoryRecord[] | null = null
     const ensureCategories = async () => {
-      if (!cachedCategories) cachedCategories = await categoryService.list()
+      if (!cachedCategories) {
+        cachedCategories = (await categoryService.list({ limit: '500' })).data
+      }
       return cachedCategories
     }
 

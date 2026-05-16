@@ -34,6 +34,9 @@ exports.reportService = {
             availableQty: Math.max(0, item.quantity - item.reservedQty),
             location: item.location,
             supplier: item.supplier,
+            price: Number(item.price),
+            createdAt: item.createdAt.toISOString(),
+            updatedAt: item.updatedAt.toISOString(),
         })), { header: true });
     },
     exportExcel: async () => {
@@ -56,6 +59,8 @@ exports.reportService = {
             Location: item.location,
             Supplier: item.supplier,
             Price: Number(item.price),
+            CreatedAt: item.createdAt.toISOString(),
+            UpdatedAt: item.updatedAt.toISOString(),
         }));
         const workbook = xlsx_1.default.utils.book_new();
         const worksheet = xlsx_1.default.utils.json_to_sheet(rows);
@@ -63,10 +68,10 @@ exports.reportService = {
         return xlsx_1.default.write(workbook, { bookType: 'xlsx', type: 'buffer' });
     },
     lowStock: async () => prisma_1.prisma.$queryRaw `
-      SELECT i.*, c.name as categoryName
-      FROM Item i
-      JOIN Category c ON i.categoryId = c.id
-      WHERE i.quantity <= i.lowStockAt
+      SELECT i.*, c.name as "categoryName"
+      FROM "Item" i
+      JOIN "Category" c ON i."categoryId" = c.id
+      WHERE i.quantity <= i."lowStockAt"
       ORDER BY i.quantity ASC
     `,
     recent: async () => prisma_1.prisma.item.findMany({

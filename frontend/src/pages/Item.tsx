@@ -21,7 +21,7 @@ export const AddItemPage = () => {
   const [form, setForm] = useState<ItemInput>({ name: '', sku: '', categoryId: '', quantity: 0, price: 0, supplier: '', location: '', description: '' })
 
   useEffect(() => {
-    categoryService.list().then(setCategories)
+    categoryService.list({ page: 1, pageSize: 500 }).then((res) => setCategories(res.data))
   }, [])
 
   useEffect(() => {

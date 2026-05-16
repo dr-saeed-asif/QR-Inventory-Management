@@ -13,7 +13,7 @@ Handles authentication, inventory items, categories, QR code generation, scannin
 | Language | TypeScript |
 | Framework | Express 5 |
 | ORM | Prisma |
-| Database | MySQL |
+| Database | PostgreSQL |
 | Auth | JSON Web Tokens (`jsonwebtoken`) + `bcrypt` |
 | Validation | `zod` |
 | Security | `helmet`, `cors` |
@@ -63,7 +63,7 @@ cp .env.example .env
 
 | Variable | Description | Example |
 |---|---|---|
-| `DATABASE_URL` | MySQL connection string | `mysql://root:password@localhost:3306/qr_inventory` |
+| `DATABASE_URL` | PostgreSQL connection string | `postgresql://postgres:password@localhost:5432/qr_inventory?schema=public` |
 | `JWT_SECRET` | Secret key used to sign JWTs | `replace-with-strong-secret` |
 | `JWT_EXPIRES_IN` | JWT expiry duration | `1d` |
 | `PORT` | Port the API server listens on | `4000` |
@@ -111,9 +111,11 @@ The API will be available at: **`http://localhost:4000`**
 
 ---
 
-## Database (Prisma + MySQL)
+## Database (Prisma + PostgreSQL)
 
-1. Make sure MySQL is running and `DATABASE_URL` is set in `.env`.
+1. Create database: `createdb qr_inventory` (or via pgAdmin).
+2. Set `DATABASE_URL` in `.env` (see `.env.example`).
+3. Make sure PostgreSQL is running on port `5432`.
 2. Apply migrations:
    ```bash
    npm run prisma:migrate

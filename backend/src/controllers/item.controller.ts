@@ -3,6 +3,7 @@ import { parse } from 'csv-parse/sync'
 import XLSX from 'xlsx'
 import { itemService } from '../services/item.service'
 import { itemCatalogService } from '../services/item-catalog.service'
+import { mapImportRecord } from '../utils/import-item'
 
 export const itemController = {
   create: async (req: Request, res: Response, next: NextFunction) => {
@@ -74,20 +75,17 @@ export const itemController = {
         return
       }
 
-      const rows = records.map((record) => ({
-        name: String(record.name ?? record.Name ?? ''),
-        sku: String(record.sku ?? record.SKU ?? ''),
-        category: String(record.category ?? record.Category ?? ''),
-        quantity: Number(record.quantity ?? record.Quantity ?? 0),
-        reservedQty: Number(record.reservedQty ?? record.ReservedQty ?? 0),
-        price: Number(record.price ?? record.Price ?? 0),
-        supplier: String(record.supplier ?? record.Supplier ?? ''),
-        location: String(record.location ?? record.Location ?? ''),
-        description: String(record.description ?? record.Description ?? ''),
-        expiryDate: String(record.expiryDate ?? record.ExpiryDate ?? ''),
-        batchNumber: String(record.batchNumber ?? record.BatchNumber ?? ''),
-        lotNumber: String(record.lotNumber ?? record.LotNumber ?? ''),
-      }))
+      const rows = records
+        .map((record) => mapImportRecord(record as Record<string, unknown>))
+        .filter((row) => row.name.trim().length >= 2)
+
+      if (rows.length === 0) {
+        res.status(400).json({
+          message:
+            'No valid rows found. Expected columns like Item Name, Sale Price, Purchase Price (Banu Adam export format).',
+        })
+        return
+      }
 
       const result = await itemService.createManyFromImport(rows, req.user?.userId)
       res.status(201).json(result)

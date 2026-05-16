@@ -10,9 +10,14 @@ export const categoryController = {
       next(error)
     }
   },
-  list: async (_req: Request, res: Response, next: NextFunction) => {
+  list: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      res.json(await categoryService.list())
+      res.json(
+        await categoryService.list({
+          page: req.query.page as string | undefined,
+          limit: req.query.limit as string | undefined,
+        }),
+      )
     } catch (error) {
       next(error)
     }

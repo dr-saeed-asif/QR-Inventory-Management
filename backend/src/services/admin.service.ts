@@ -3,14 +3,8 @@ import { randomUUID } from 'node:crypto'
 import type { UserRole } from '@prisma/client'
 import { prisma } from '../config/prisma'
 import { ApiError } from '../utils/api-error'
-import { rolePermissions, type AppRole } from '../config/permissions'
 import { activityService } from './activity.service'
-
-const roleLabels: Record<AppRole, string> = {
-  ADMIN: 'Administrator',
-  MANAGER: 'Operations Manager',
-  USER: 'Standard User',
-}
+import { ensureSystemRoles, parsePermissions } from './role-permissions.service'
 
 type DbAdminRole = {
   id: string
@@ -29,19 +23,6 @@ type DbAdminUserRole = {
 
 const formatDate = (value?: Date | null) => value?.toISOString() ?? new Date().toISOString()
 const coreRoles: UserRole[] = ['ADMIN', 'MANAGER', 'USER']
-
-const parsePermissions = (value: unknown) => {
-  if (Array.isArray(value)) return value.map((item) => String(item))
-  if (typeof value === 'string') {
-    try {
-      const parsed = JSON.parse(value)
-      if (Array.isArray(parsed)) return parsed.map((item) => String(item))
-    } catch {
-      return []
-    }
-  }
-  return []
-}
 
 const moduleLabelMap: Record<string, string> = {
   items: 'Inventory',
@@ -101,58 +82,12 @@ const countUsersByRoleKey = async (roleKey: string) => {
   }
 
   const rows = await prisma.$queryRaw<Array<{ count: bigint | number }>>`
-    SELECT COUNT(*) as count
+    SELECT COUNT(*)::int as count
     FROM admin_user_roles
-    WHERE roleKey = ${roleKey}
+    WHERE "roleKey" = ${roleKey}
   `
   const rawCount = rows[0]?.count ?? 0
   return Number(rawCount)
-}
-
-const ensureRoleTable = async () => {
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS admin_roles (
-      id VARCHAR(191) NOT NULL PRIMARY KEY,
-      roleKey VARCHAR(191) NOT NULL UNIQUE,
-      name VARCHAR(191) NOT NULL,
-      permissions JSON NOT NULL,
-      isSystem TINYINT(1) NOT NULL DEFAULT 0,
-      createdAt DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-      updatedAt DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-  `)
-}
-
-const ensureUserRoleTable = async () => {
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS admin_user_roles (
-      userId VARCHAR(191) NOT NULL PRIMARY KEY,
-      roleKey VARCHAR(191) NOT NULL,
-      createdAt DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-      updatedAt DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-  `)
-}
-
-const ensureSystemRoles = async () => {
-  await ensureRoleTable()
-  await ensureUserRoleTable()
-
-  const existing = await prisma.$queryRaw<Pick<DbAdminRole, 'roleKey'>[]>`
-    SELECT roleKey FROM admin_roles WHERE roleKey IN ('ADMIN', 'MANAGER', 'USER')
-  `
-
-  const existingKeys = new Set(existing.map((row) => row.roleKey))
-  const defaults: AppRole[] = ['ADMIN', 'MANAGER', 'USER']
-
-  for (const role of defaults) {
-    if (existingKeys.has(role)) continue
-
-    await prisma.$executeRaw`
-      INSERT INTO admin_roles (id, roleKey, name, permissions, isSystem)
-      VALUES (${randomUUID()}, ${role}, ${roleLabels[role]}, ${JSON.stringify(Array.from(rolePermissions[role]))}, 1)
-    `
-  }
 }
 
 export const adminService = {
@@ -171,12 +106,14 @@ export const adminService = {
       },
     })
     const overrides = await prisma.$queryRaw<DbAdminUserRole[]>`
-      SELECT userId, roleKey FROM admin_user_roles
+      SELECT "userId", "roleKey" FROM admin_user_roles
     `
     const overrideMap = new Map(overrides.map((row) => [row.userId, row.roleKey]))
     return users.map((user) => ({
       ...user,
       role: overrideMap.get(user.id) ?? user.role,
+      createdAt: formatDate(user.createdAt),
+      updatedAt: formatDate(user.updatedAt),
     }))
   },
 
@@ -213,9 +150,9 @@ export const adminService = {
 
     if (!isCoreRole) {
       await prisma.$executeRaw`
-        INSERT INTO admin_user_roles (userId, roleKey)
+        INSERT INTO admin_user_roles ("userId", "roleKey")
         VALUES (${user.id}, ${selectedRole})
-        ON DUPLICATE KEY UPDATE roleKey = VALUES(roleKey)
+        ON CONFLICT ("userId") DO UPDATE SET "roleKey" = EXCLUDED."roleKey", "updatedAt" = CURRENT_TIMESTAMP
       `
     }
 
@@ -272,12 +209,12 @@ export const adminService = {
 
     if (selectedRole) {
       if (isCoreRole) {
-        await prisma.$executeRaw`DELETE FROM admin_user_roles WHERE userId = ${userId}`
+        await prisma.$executeRaw`DELETE FROM admin_user_roles WHERE "userId" = ${userId}`
       } else {
         await prisma.$executeRaw`
-          INSERT INTO admin_user_roles (userId, roleKey)
+          INSERT INTO admin_user_roles ("userId", "roleKey")
           VALUES (${userId}, ${selectedRole})
-          ON DUPLICATE KEY UPDATE roleKey = VALUES(roleKey)
+          ON CONFLICT ("userId") DO UPDATE SET "roleKey" = EXCLUDED."roleKey", "updatedAt" = CURRENT_TIMESTAMP
         `
       }
     }
@@ -303,7 +240,7 @@ export const adminService = {
     if (actorId && actorId === userId) throw new ApiError(400, 'You cannot delete your own account')
 
     await ensureSystemRoles()
-    await prisma.$executeRaw`DELETE FROM admin_user_roles WHERE userId = ${userId}`
+    await prisma.$executeRaw`DELETE FROM admin_user_roles WHERE "userId" = ${userId}`
     await prisma.user.delete({ where: { id: userId } })
 
     await activityService.create({
@@ -319,16 +256,16 @@ export const adminService = {
     await ensureSystemRoles()
 
     const rows = await prisma.$queryRaw<DbAdminRole[]>`
-      SELECT id, roleKey, name, permissions, isSystem, createdAt, updatedAt
+      SELECT id, "roleKey", name, permissions, "isSystem", "createdAt", "updatedAt"
       FROM admin_roles
-      ORDER BY createdAt DESC
+      ORDER BY "createdAt" DESC
     `
 
     const roleStats = await prisma.user.groupBy({ by: ['role'], _count: { _all: true } })
     const customRoleStats = await prisma.$queryRaw<Array<{ roleKey: string; count: bigint | number }>>`
-      SELECT roleKey, COUNT(*) as count
+      SELECT "roleKey", COUNT(*)::int as count
       FROM admin_user_roles
-      GROUP BY roleKey
+      GROUP BY "roleKey"
     `
     const userCountByRole = new Map<string, number>(roleStats.map((entry) => [entry.role, entry._count._all]))
     for (const row of customRoleStats) {
@@ -356,9 +293,9 @@ export const adminService = {
     if (!roleKey) throw new ApiError(400, 'Role name is invalid')
 
     const existing = await prisma.$queryRaw<DbAdminRole[]>`
-      SELECT id, roleKey, name, permissions, isSystem, createdAt, updatedAt
+      SELECT id, "roleKey", name, permissions, "isSystem", "createdAt", "updatedAt"
       FROM admin_roles
-      WHERE roleKey = ${roleKey}
+      WHERE "roleKey" = ${roleKey}
       LIMIT 1
     `
 
@@ -367,8 +304,8 @@ export const adminService = {
     const id = randomUUID()
 
     await prisma.$executeRaw`
-      INSERT INTO admin_roles (id, roleKey, name, permissions, isSystem)
-      VALUES (${id}, ${roleKey}, ${input.name.trim()}, ${JSON.stringify(input.permissions)}, 0)
+      INSERT INTO admin_roles (id, "roleKey", name, permissions, "isSystem")
+      VALUES (${id}, ${roleKey}, ${input.name.trim()}, ${JSON.stringify(input.permissions)}::jsonb, false)
     `
 
     await activityService.create({
@@ -380,7 +317,7 @@ export const adminService = {
     })
 
     const created = await prisma.$queryRaw<DbAdminRole[]>`
-      SELECT id, roleKey, name, permissions, isSystem, createdAt, updatedAt
+      SELECT id, "roleKey", name, permissions, "isSystem", "createdAt", "updatedAt"
       FROM admin_roles
       WHERE id = ${id}
       LIMIT 1
@@ -410,7 +347,7 @@ export const adminService = {
     await ensureSystemRoles()
 
     const existingRows = await prisma.$queryRaw<DbAdminRole[]>`
-      SELECT id, roleKey, name, permissions, isSystem, createdAt, updatedAt
+      SELECT id, "roleKey", name, permissions, "isSystem", "createdAt", "updatedAt"
       FROM admin_roles
       WHERE id = ${id}
       LIMIT 1
@@ -424,7 +361,7 @@ export const adminService = {
 
     await prisma.$executeRaw`
       UPDATE admin_roles
-      SET name = ${nextName}, permissions = ${JSON.stringify(nextPermissions)}
+      SET name = ${nextName}, permissions = ${JSON.stringify(nextPermissions)}::jsonb, "updatedAt" = CURRENT_TIMESTAMP
       WHERE id = ${id}
     `
 
@@ -437,7 +374,7 @@ export const adminService = {
     })
 
     const updatedRows = await prisma.$queryRaw<DbAdminRole[]>`
-      SELECT id, roleKey, name, permissions, isSystem, createdAt, updatedAt
+      SELECT id, "roleKey", name, permissions, "isSystem", "createdAt", "updatedAt"
       FROM admin_roles
       WHERE id = ${id}
       LIMIT 1
@@ -464,7 +401,7 @@ export const adminService = {
     await ensureSystemRoles()
 
     const rows = await prisma.$queryRaw<DbAdminRole[]>`
-      SELECT id, roleKey, name, permissions, isSystem, createdAt, updatedAt
+      SELECT id, "roleKey", name, permissions, "isSystem", "createdAt", "updatedAt"
       FROM admin_roles
       WHERE id = ${id}
       LIMIT 1

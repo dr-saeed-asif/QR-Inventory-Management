@@ -17,6 +17,9 @@ import {
   ChevronsUpDown,
   LogOut,
   Bot,
+  Receipt,
+  ShoppingCart,
+  Contact,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/auth-store'
 import { useUiStore } from '@/store/ui-store'
@@ -26,11 +29,15 @@ import { hasPermission, type Permission } from '@/lib/permissions'
 import { alertsService } from '@/services/alerts.service'
 import type { AlertSummary } from '@/types'
 import { AiAssistant } from '@/components/ai/ai-assistant'
+import { APP_NAME, appLogo } from '@/lib/branding'
 
 const links = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard.read' },
   // { to: '/add-item', label: 'Add Item' },
   { to: '/admin/inventory', label: 'Inventory Lists', icon: Boxes, permission: 'items.read' },
+  { to: '/admin/sales', label: 'Sales', icon: Receipt, permission: 'sales.read' },
+  { to: '/admin/purchases', label: 'Purchases', icon: ShoppingCart, permission: 'purchases.read' },
+  { to: '/admin/parties', label: 'Parties', icon: Contact, permission: 'parties.read' },
   { to: '/admin/stock-operations', label: 'Stock Operations', icon: Warehouse, permission: 'stock.read' },
   { to: '/admin/scanner', label: 'QR Scanner', icon: QrCode, permission: 'scan.create' },
   { to: '/admin/categories', label: 'Categories', icon: FolderTree, permission: 'categories.read' },
@@ -158,8 +165,17 @@ export const AppShell = () => {
           collapsed ? 'w-20' : 'w-72',
         )}
       >
-        <div className="sticky top-0 z-10 mb-4 flex items-center justify-between rounded-xl bg-white/95 py-1 backdrop-blur">
-          {!collapsed ? <span className="px-1 text-lg font-semibold tracking-tight">Inventory Management</span> : null}
+        <div className="sticky top-0 z-10 mb-4 flex items-center justify-between gap-2 rounded-xl bg-white/95 py-1 backdrop-blur">
+          <div className={cn('flex min-w-0 items-center gap-2', collapsed ? 'justify-center' : '')}>
+            <img
+              src={appLogo}
+              alt={`${APP_NAME} logo`}
+              className={cn('shrink-0 object-contain', collapsed ? 'h-9 w-9' : 'h-10 w-10')}
+            />
+            {!collapsed ? (
+              <span className="truncate px-1 text-lg font-semibold tracking-tight text-slate-900">{APP_NAME}</span>
+            ) : null}
+          </div>
           <Button
             variant="outline"
             className="h-11 w-11 p-0"

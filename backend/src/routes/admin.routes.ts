@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { adminController } from '../controllers/admin.controller'
-import { authenticate, authorize } from '../middleware/auth.middleware'
+import { authenticate, authorizePermission } from '../middleware/auth.middleware'
 import { validate } from '../middleware/validate.middleware'
 import {
 	adminRoleCreateSchema,
@@ -11,14 +11,14 @@ import {
 
 const router = Router()
 
-router.use(authenticate, authorize(['ADMIN']))
-router.get('/users', adminController.users)
-router.post('/users', validate(adminUserCreateSchema), adminController.createUser)
-router.put('/users/:id', validate(adminUserUpdateSchema), adminController.updateUser)
-router.delete('/users/:id', adminController.deleteUser)
-router.get('/roles', adminController.roles)
-router.post('/roles', validate(adminRoleCreateSchema), adminController.createRole)
-router.put('/roles/:id', validate(adminRoleUpdateSchema), adminController.updateRole)
-router.delete('/roles/:id', adminController.deleteRole)
+router.use(authenticate)
+router.get('/users', authorizePermission('users.read'), adminController.users)
+router.post('/users', authorizePermission('users.create'), validate(adminUserCreateSchema), adminController.createUser)
+router.put('/users/:id', authorizePermission('users.update'), validate(adminUserUpdateSchema), adminController.updateUser)
+router.delete('/users/:id', authorizePermission('users.delete'), adminController.deleteUser)
+router.get('/roles', authorizePermission('roles.read'), adminController.roles)
+router.post('/roles', authorizePermission('roles.create'), validate(adminRoleCreateSchema), adminController.createRole)
+router.put('/roles/:id', authorizePermission('roles.update'), validate(adminRoleUpdateSchema), adminController.updateRole)
+router.delete('/roles/:id', authorizePermission('roles.delete'), adminController.deleteRole)
 
 export default router

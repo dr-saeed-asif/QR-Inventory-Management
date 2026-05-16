@@ -1,7 +1,7 @@
 {
-  "name": "QR Inventory Management",
-  "short_name": "QR Inventory",
-  "description": "Offline-capable QR inventory management app",
+  "name": "Banu-Adam",
+  "short_name": "Banu-Adam",
+  "description": "Banu Adam Spices and Dry Fruits — inventory management",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -9,9 +9,9 @@
   "theme_color": "#0f172a",
   "icons": [
     {
-      "src": "./favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "./banu-adam-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any"
     }
   ]

@@ -60,7 +60,7 @@ export const StockOperationsPage = () => {
       </Card>
       <Card className="space-y-3">
         <h3 className="text-base font-semibold">Stock History</h3>
-        <div className="overflow-auto">
+        <div className="max-h-[60vh] overflow-y-auto overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead><tr className="border-b"><th>Type</th><th>Item</th><th>Qty</th><th>When</th></tr></thead>
             <tbody>

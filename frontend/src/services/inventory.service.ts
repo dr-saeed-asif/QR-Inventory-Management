@@ -25,6 +25,7 @@ interface ApiInventoryItem {
   qrValue: string
   barcodeValue: string
   createdAt: string
+  updatedAt: string
   category?: { id: string; name: string }
   categories?: Category[]
   tags?: Array<{ id: string; name: string } | string>
@@ -129,6 +130,7 @@ const mapItem = (item: ApiInventoryItem): InventoryItem => ({
   })),
   batches: item.batches,
   createdAt: item.createdAt,
+  updatedAt: item.updatedAt,
 })
 
 export const inventoryService = {

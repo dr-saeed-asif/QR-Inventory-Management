@@ -1,5 +1,6 @@
 import { prisma } from '../config/prisma'
 import { ApiError } from '../utils/api-error'
+import { parsePagination } from '../utils/pagination'
 import { activityService } from './activity.service'
 import { auditService } from './audit.service'
 
@@ -16,18 +17,31 @@ export const categoryService = {
     return category
   },
 
-  list: async () => {
-    const categories = await prisma.category.findMany({
-      orderBy: { createdAt: 'desc' },
-      include: { _count: { select: { items: true } } },
-    })
-    return categories.map((category) => ({
-      id: category.id,
-      name: category.name,
-      itemsCount: category._count.items,
-      createdAt: category.createdAt,
-      updatedAt: category.updatedAt,
-    }))
+  list: async (query?: { page?: string; limit?: string }) => {
+    const { page, limit, skip } = parsePagination(query)
+
+    const [categories, total] = await Promise.all([
+      prisma.category.findMany({
+        orderBy: { createdAt: 'desc' },
+        include: { _count: { select: { items: true } } },
+        skip,
+        take: limit,
+      }),
+      prisma.category.count(),
+    ])
+
+    return {
+      data: categories.map((category) => ({
+        id: category.id,
+        name: category.name,
+        itemsCount: category._count.items,
+        createdAt: category.createdAt,
+        updatedAt: category.updatedAt,
+      })),
+      total,
+      page,
+      limit,
+    }
   },
 
   update: async (id: string, name: string, userId?: string) => {

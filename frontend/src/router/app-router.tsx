@@ -14,6 +14,9 @@ import { StockOperationsPage } from '@/pages/Stock-Operations'
 import { UsersPage } from '@/pages/User'
 import { RolesPage } from '@/pages/Roles'
 import { AlertsPage } from '@/pages/Alerts'
+import { PartiesPage } from '@/pages/Parties'
+import { SalesPage } from '@/pages/Sales'
+import { PurchasesPage } from '@/pages/Purchases'
 import { hasPermission, type Permission } from '@/lib/permissions'
 
 const isDesktopFileProtocol = typeof window !== 'undefined' && window.location.protocol === 'file:'
@@ -44,6 +47,9 @@ const ProtectedRoutes = () => {
         <Route path="/stock-operations" element={<Navigate to="/admin/stock-operations" replace />} />
         <Route path="/scanner" element={<Navigate to="/admin/scanner" replace />} />
         <Route path="/categories" element={<Navigate to="/admin/categories" replace />} />
+        <Route path="/parties" element={<Navigate to="/admin/parties" replace />} />
+        <Route path="/sales" element={<Navigate to="/admin/sales" replace />} />
+        <Route path="/purchases" element={<Navigate to="/admin/purchases" replace />} />
         <Route path="/reports" element={<Navigate to="/admin/reports" replace />} />
         <Route path="/alerts" element={<Navigate to="/admin/alerts" replace />} />
         <Route path="/users" element={<Navigate to="/admin/users" replace />} />
@@ -64,6 +70,13 @@ const ProtectedRoutes = () => {
         <Route path="/admin/roles/create" element={<RequirePermission permission="roles.create"><RolesPage /></RequirePermission>} />
         <Route path="/admin/roles/:id/edit" element={<RequirePermission permission="roles.update"><RolesPage /></RequirePermission>} />
         <Route path="/admin/settings" element={<RequirePermission permission="settings.read"><SettingsPage /></RequirePermission>} />
+        <Route path="/admin/parties" element={<RequirePermission permission="parties.read"><PartiesPage /></RequirePermission>} />
+        <Route path="/admin/parties/create" element={<RequirePermission permission="parties.manage"><PartiesPage /></RequirePermission>} />
+        <Route path="/admin/sales" element={<RequirePermission permission="sales.read"><SalesPage /></RequirePermission>} />
+        <Route path="/admin/sales/create" element={<RequirePermission permission="sales.create"><SalesPage /></RequirePermission>} />
+        <Route path="/admin/purchases" element={<RequirePermission permission="purchases.read"><PurchasesPage /></RequirePermission>} />
+        <Route path="/admin/purchases/create" element={<RequirePermission permission="purchases.create"><PurchasesPage /></RequirePermission>} />
+        <Route path="/admin/categories/create" element={<RequirePermission permission="categories.manage"><CategoriesPage /></RequirePermission>} />
       </Route>
     </Routes>
   )

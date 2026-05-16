@@ -15,7 +15,7 @@ export const runCategoryTools = async (ctx: AiToolContext): Promise<ToolResult[]
   const results: ToolResult[] = []
 
   if (asksForCount(ctx.text) && hasAnyWord(ctx.text, ['category', 'categories']) && ctx.can('categories.read')) {
-    const categories = await categoryService.list()
+    const categories = (await categoryService.list({ limit: '500' })).data
     results.push({
       tool: 'category-count',
       data: {

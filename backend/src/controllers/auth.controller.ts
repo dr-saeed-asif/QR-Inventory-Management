@@ -19,4 +19,17 @@ export const authController = {
       next(error)
     }
   },
+
+  refresh: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user?.userId) {
+        res.status(401).json({ message: 'Unauthorized' })
+        return
+      }
+      const result = await authService.refreshSession(req.user.userId)
+      res.status(200).json(result)
+    } catch (error) {
+      next(error)
+    }
+  },
 }

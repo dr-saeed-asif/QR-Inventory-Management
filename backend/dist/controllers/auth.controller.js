@@ -21,4 +21,17 @@ exports.authController = {
             next(error);
         }
     },
+    refresh: async (req, res, next) => {
+        try {
+            if (!req.user?.userId) {
+                res.status(401).json({ message: 'Unauthorized' });
+                return;
+            }
+            const result = await auth_service_1.authService.refreshSession(req.user.userId);
+            res.status(200).json(result);
+        }
+        catch (error) {
+            next(error);
+        }
+    },
 };

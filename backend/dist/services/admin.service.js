@@ -8,30 +8,10 @@ const bcrypt_1 = __importDefault(require("bcrypt"));
 const node_crypto_1 = require("node:crypto");
 const prisma_1 = require("../config/prisma");
 const api_error_1 = require("../utils/api-error");
-const permissions_1 = require("../config/permissions");
 const activity_service_1 = require("./activity.service");
-const roleLabels = {
-    ADMIN: 'Administrator',
-    MANAGER: 'Operations Manager',
-    USER: 'Standard User',
-};
+const role_permissions_service_1 = require("./role-permissions.service");
 const formatDate = (value) => value?.toISOString() ?? new Date().toISOString();
 const coreRoles = ['ADMIN', 'MANAGER', 'USER'];
-const parsePermissions = (value) => {
-    if (Array.isArray(value))
-        return value.map((item) => String(item));
-    if (typeof value === 'string') {
-        try {
-            const parsed = JSON.parse(value);
-            if (Array.isArray(parsed))
-                return parsed.map((item) => String(item));
-        }
-        catch {
-            return [];
-        }
-    }
-    return [];
-};
 const moduleLabelMap = {
     items: 'Inventory',
     categories: 'Category',
@@ -83,56 +63,16 @@ const countUsersByRoleKey = async (roleKey) => {
         return prisma_1.prisma.user.count({ where: { role: roleKey } });
     }
     const rows = await prisma_1.prisma.$queryRaw `
-    SELECT COUNT(*) as count
+    SELECT COUNT(*)::int as count
     FROM admin_user_roles
-    WHERE roleKey = ${roleKey}
+    WHERE "roleKey" = ${roleKey}
   `;
     const rawCount = rows[0]?.count ?? 0;
     return Number(rawCount);
 };
-const ensureRoleTable = async () => {
-    await prisma_1.prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS admin_roles (
-      id VARCHAR(191) NOT NULL PRIMARY KEY,
-      roleKey VARCHAR(191) NOT NULL UNIQUE,
-      name VARCHAR(191) NOT NULL,
-      permissions JSON NOT NULL,
-      isSystem TINYINT(1) NOT NULL DEFAULT 0,
-      createdAt DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-      updatedAt DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-  `);
-};
-const ensureUserRoleTable = async () => {
-    await prisma_1.prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS admin_user_roles (
-      userId VARCHAR(191) NOT NULL PRIMARY KEY,
-      roleKey VARCHAR(191) NOT NULL,
-      createdAt DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-      updatedAt DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-  `);
-};
-const ensureSystemRoles = async () => {
-    await ensureRoleTable();
-    await ensureUserRoleTable();
-    const existing = await prisma_1.prisma.$queryRaw `
-    SELECT roleKey FROM admin_roles WHERE roleKey IN ('ADMIN', 'MANAGER', 'USER')
-  `;
-    const existingKeys = new Set(existing.map((row) => row.roleKey));
-    const defaults = ['ADMIN', 'MANAGER', 'USER'];
-    for (const role of defaults) {
-        if (existingKeys.has(role))
-            continue;
-        await prisma_1.prisma.$executeRaw `
-      INSERT INTO admin_roles (id, roleKey, name, permissions, isSystem)
-      VALUES (${(0, node_crypto_1.randomUUID)()}, ${role}, ${roleLabels[role]}, ${JSON.stringify(Array.from(permissions_1.rolePermissions[role]))}, 1)
-    `;
-    }
-};
 exports.adminService = {
     listUsers: async () => {
-        await ensureSystemRoles();
+        await (0, role_permissions_service_1.ensureSystemRoles)();
         const users = await prisma_1.prisma.user.findMany({
             orderBy: { createdAt: 'desc' },
             select: {
@@ -145,16 +85,18 @@ exports.adminService = {
             },
         });
         const overrides = await prisma_1.prisma.$queryRaw `
-      SELECT userId, roleKey FROM admin_user_roles
+      SELECT "userId", "roleKey" FROM admin_user_roles
     `;
         const overrideMap = new Map(overrides.map((row) => [row.userId, row.roleKey]));
         return users.map((user) => ({
             ...user,
             role: overrideMap.get(user.id) ?? user.role,
+            createdAt: formatDate(user.createdAt),
+            updatedAt: formatDate(user.updatedAt),
         }));
     },
     createUser: async (input, actorId) => {
-        await ensureSystemRoles();
+        await (0, role_permissions_service_1.ensureSystemRoles)();
         const existing = await prisma_1.prisma.user.findUnique({ where: { email: input.email } });
         if (existing)
             throw new api_error_1.ApiError(409, 'Email already in use');
@@ -180,9 +122,9 @@ exports.adminService = {
         });
         if (!isCoreRole) {
             await prisma_1.prisma.$executeRaw `
-        INSERT INTO admin_user_roles (userId, roleKey)
+        INSERT INTO admin_user_roles ("userId", "roleKey")
         VALUES (${user.id}, ${selectedRole})
-        ON DUPLICATE KEY UPDATE roleKey = VALUES(roleKey)
+        ON CONFLICT ("userId") DO UPDATE SET "roleKey" = EXCLUDED."roleKey", "updatedAt" = CURRENT_TIMESTAMP
       `;
         }
         await activity_service_1.activityService.create({
@@ -198,7 +140,7 @@ exports.adminService = {
         };
     },
     updateUser: async (userId, input, actorId) => {
-        await ensureSystemRoles();
+        await (0, role_permissions_service_1.ensureSystemRoles)();
         const existing = await prisma_1.prisma.user.findUnique({ where: { id: userId } });
         if (!existing)
             throw new api_error_1.ApiError(404, 'User not found');
@@ -229,13 +171,13 @@ exports.adminService = {
         });
         if (selectedRole) {
             if (isCoreRole) {
-                await prisma_1.prisma.$executeRaw `DELETE FROM admin_user_roles WHERE userId = ${userId}`;
+                await prisma_1.prisma.$executeRaw `DELETE FROM admin_user_roles WHERE "userId" = ${userId}`;
             }
             else {
                 await prisma_1.prisma.$executeRaw `
-          INSERT INTO admin_user_roles (userId, roleKey)
+          INSERT INTO admin_user_roles ("userId", "roleKey")
           VALUES (${userId}, ${selectedRole})
-          ON DUPLICATE KEY UPDATE roleKey = VALUES(roleKey)
+          ON CONFLICT ("userId") DO UPDATE SET "roleKey" = EXCLUDED."roleKey", "updatedAt" = CURRENT_TIMESTAMP
         `;
             }
         }
@@ -257,8 +199,8 @@ exports.adminService = {
             throw new api_error_1.ApiError(404, 'User not found');
         if (actorId && actorId === userId)
             throw new api_error_1.ApiError(400, 'You cannot delete your own account');
-        await ensureSystemRoles();
-        await prisma_1.prisma.$executeRaw `DELETE FROM admin_user_roles WHERE userId = ${userId}`;
+        await (0, role_permissions_service_1.ensureSystemRoles)();
+        await prisma_1.prisma.$executeRaw `DELETE FROM admin_user_roles WHERE "userId" = ${userId}`;
         await prisma_1.prisma.user.delete({ where: { id: userId } });
         await activity_service_1.activityService.create({
             action: 'DELETE',
@@ -269,29 +211,29 @@ exports.adminService = {
         });
     },
     listRoles: async () => {
-        await ensureSystemRoles();
+        await (0, role_permissions_service_1.ensureSystemRoles)();
         const rows = await prisma_1.prisma.$queryRaw `
-      SELECT id, roleKey, name, permissions, isSystem, createdAt, updatedAt
+      SELECT id, "roleKey", name, permissions, "isSystem", "createdAt", "updatedAt"
       FROM admin_roles
-      ORDER BY createdAt DESC
+      ORDER BY "createdAt" DESC
     `;
         const roleStats = await prisma_1.prisma.user.groupBy({ by: ['role'], _count: { _all: true } });
         const customRoleStats = await prisma_1.prisma.$queryRaw `
-      SELECT roleKey, COUNT(*) as count
+      SELECT "roleKey", COUNT(*)::int as count
       FROM admin_user_roles
-      GROUP BY roleKey
+      GROUP BY "roleKey"
     `;
         const userCountByRole = new Map(roleStats.map((entry) => [entry.role, entry._count._all]));
         for (const row of customRoleStats) {
             userCountByRole.set(row.roleKey, Number(row.count));
         }
         return rows.map((row) => ({
-            ...summarizePermissionDisplay(parsePermissions(row.permissions)),
+            ...summarizePermissionDisplay((0, role_permissions_service_1.parsePermissions)(row.permissions)),
             id: row.id,
             roleKey: row.roleKey,
             name: row.name,
             role: row.roleKey,
-            permissions: parsePermissions(row.permissions),
+            permissions: (0, role_permissions_service_1.parsePermissions)(row.permissions),
             userCount: userCountByRole.get(row.roleKey) ?? 0,
             isSystem: Boolean(row.isSystem),
             createdAt: formatDate(row.createdAt),
@@ -299,22 +241,22 @@ exports.adminService = {
         }));
     },
     createRole: async (input, actorId) => {
-        await ensureSystemRoles();
+        await (0, role_permissions_service_1.ensureSystemRoles)();
         const roleKey = toRoleKey(input.name);
         if (!roleKey)
             throw new api_error_1.ApiError(400, 'Role name is invalid');
         const existing = await prisma_1.prisma.$queryRaw `
-      SELECT id, roleKey, name, permissions, isSystem, createdAt, updatedAt
+      SELECT id, "roleKey", name, permissions, "isSystem", "createdAt", "updatedAt"
       FROM admin_roles
-      WHERE roleKey = ${roleKey}
+      WHERE "roleKey" = ${roleKey}
       LIMIT 1
     `;
         if (existing.length > 0)
             throw new api_error_1.ApiError(409, 'Role already exists');
         const id = (0, node_crypto_1.randomUUID)();
         await prisma_1.prisma.$executeRaw `
-      INSERT INTO admin_roles (id, roleKey, name, permissions, isSystem)
-      VALUES (${id}, ${roleKey}, ${input.name.trim()}, ${JSON.stringify(input.permissions)}, 0)
+      INSERT INTO admin_roles (id, "roleKey", name, permissions, "isSystem")
+      VALUES (${id}, ${roleKey}, ${input.name.trim()}, ${JSON.stringify(input.permissions)}::jsonb, false)
     `;
         await activity_service_1.activityService.create({
             action: 'CREATE',
@@ -324,19 +266,19 @@ exports.adminService = {
             userId: actorId,
         });
         const created = await prisma_1.prisma.$queryRaw `
-      SELECT id, roleKey, name, permissions, isSystem, createdAt, updatedAt
+      SELECT id, "roleKey", name, permissions, "isSystem", "createdAt", "updatedAt"
       FROM admin_roles
       WHERE id = ${id}
       LIMIT 1
     `;
         const row = created[0];
         return {
-            ...summarizePermissionDisplay(parsePermissions(row.permissions)),
+            ...summarizePermissionDisplay((0, role_permissions_service_1.parsePermissions)(row.permissions)),
             id: row.id,
             roleKey: row.roleKey,
             name: row.name,
             role: row.roleKey,
-            permissions: parsePermissions(row.permissions),
+            permissions: (0, role_permissions_service_1.parsePermissions)(row.permissions),
             userCount: 0,
             isSystem: Boolean(row.isSystem),
             createdAt: formatDate(row.createdAt),
@@ -344,9 +286,9 @@ exports.adminService = {
         };
     },
     updateRole: async (id, input, actorId) => {
-        await ensureSystemRoles();
+        await (0, role_permissions_service_1.ensureSystemRoles)();
         const existingRows = await prisma_1.prisma.$queryRaw `
-      SELECT id, roleKey, name, permissions, isSystem, createdAt, updatedAt
+      SELECT id, "roleKey", name, permissions, "isSystem", "createdAt", "updatedAt"
       FROM admin_roles
       WHERE id = ${id}
       LIMIT 1
@@ -355,10 +297,10 @@ exports.adminService = {
         if (!existing)
             throw new api_error_1.ApiError(404, 'Role not found');
         const nextName = input.name?.trim() || existing.name;
-        const nextPermissions = input.permissions ?? parsePermissions(existing.permissions);
+        const nextPermissions = input.permissions ?? (0, role_permissions_service_1.parsePermissions)(existing.permissions);
         await prisma_1.prisma.$executeRaw `
       UPDATE admin_roles
-      SET name = ${nextName}, permissions = ${JSON.stringify(nextPermissions)}
+      SET name = ${nextName}, permissions = ${JSON.stringify(nextPermissions)}::jsonb, "updatedAt" = CURRENT_TIMESTAMP
       WHERE id = ${id}
     `;
         await activity_service_1.activityService.create({
@@ -369,7 +311,7 @@ exports.adminService = {
             userId: actorId,
         });
         const updatedRows = await prisma_1.prisma.$queryRaw `
-      SELECT id, roleKey, name, permissions, isSystem, createdAt, updatedAt
+      SELECT id, "roleKey", name, permissions, "isSystem", "createdAt", "updatedAt"
       FROM admin_roles
       WHERE id = ${id}
       LIMIT 1
@@ -377,12 +319,12 @@ exports.adminService = {
         const updated = updatedRows[0];
         const assignedUsers = await countUsersByRoleKey(updated.roleKey);
         return {
-            ...summarizePermissionDisplay(parsePermissions(updated.permissions)),
+            ...summarizePermissionDisplay((0, role_permissions_service_1.parsePermissions)(updated.permissions)),
             id: updated.id,
             roleKey: updated.roleKey,
             name: updated.name,
             role: updated.roleKey,
-            permissions: parsePermissions(updated.permissions),
+            permissions: (0, role_permissions_service_1.parsePermissions)(updated.permissions),
             userCount: assignedUsers,
             isSystem: Boolean(updated.isSystem),
             createdAt: formatDate(updated.createdAt),
@@ -390,9 +332,9 @@ exports.adminService = {
         };
     },
     deleteRole: async (id, actorId) => {
-        await ensureSystemRoles();
+        await (0, role_permissions_service_1.ensureSystemRoles)();
         const rows = await prisma_1.prisma.$queryRaw `
-      SELECT id, roleKey, name, permissions, isSystem, createdAt, updatedAt
+      SELECT id, "roleKey", name, permissions, "isSystem", "createdAt", "updatedAt"
       FROM admin_roles
       WHERE id = ${id}
       LIMIT 1

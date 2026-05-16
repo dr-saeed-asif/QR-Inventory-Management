@@ -8,6 +8,7 @@ const sync_1 = require("csv-parse/sync");
 const xlsx_1 = __importDefault(require("xlsx"));
 const item_service_1 = require("../services/item.service");
 const item_catalog_service_1 = require("../services/item-catalog.service");
+const import_item_1 = require("../utils/import-item");
 exports.itemController = {
     create: async (req, res, next) => {
         try {
@@ -84,20 +85,15 @@ exports.itemController = {
                 res.status(400).json({ message: 'Unsupported file format. Use CSV or Excel.' });
                 return;
             }
-            const rows = records.map((record) => ({
-                name: String(record.name ?? record.Name ?? ''),
-                sku: String(record.sku ?? record.SKU ?? ''),
-                category: String(record.category ?? record.Category ?? ''),
-                quantity: Number(record.quantity ?? record.Quantity ?? 0),
-                reservedQty: Number(record.reservedQty ?? record.ReservedQty ?? 0),
-                price: Number(record.price ?? record.Price ?? 0),
-                supplier: String(record.supplier ?? record.Supplier ?? ''),
-                location: String(record.location ?? record.Location ?? ''),
-                description: String(record.description ?? record.Description ?? ''),
-                expiryDate: String(record.expiryDate ?? record.ExpiryDate ?? ''),
-                batchNumber: String(record.batchNumber ?? record.BatchNumber ?? ''),
-                lotNumber: String(record.lotNumber ?? record.LotNumber ?? ''),
-            }));
+            const rows = records
+                .map((record) => (0, import_item_1.mapImportRecord)(record))
+                .filter((row) => row.name.trim().length >= 2);
+            if (rows.length === 0) {
+                res.status(400).json({
+                    message: 'No valid rows found. Expected columns like Item Name, Sale Price, Purchase Price (Banu Adam export format).',
+                });
+                return;
+            }
             const result = await item_service_1.itemService.createManyFromImport(rows, req.user?.userId);
             res.status(201).json(result);
         }
